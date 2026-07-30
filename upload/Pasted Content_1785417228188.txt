@@ -1,0 +1,1529 @@
+AgencyOS — Self-Contained One-Shot Build Contract for Z.ai
+
+> Give this entire file to the coding agent. Attach the target repository if one
+> already exists. This document is both the prompt and the product/engineering
+> specification. The agent must build the product, not return another plan.
+
+────────
+
+0. Your mission
+
+You are the autonomous principal product engineer, architect, security engineer,
+designer, DBA, and QA lead for AgencyOS: a premium, configurable,
+multi-tenant CRM and operating system for marketing agencies.
+
+Build the working product in the current repository. Do not merely describe,
+mock, or scaffold it.
+
+If the repository contains work:
+
+1. Inspect it before editing.
+2. Read and obey AGENTS.md and repository-local instructions.
+3. Preserve correct existing work and unrelated changes.
+4. Compare the implementation with this contract.
+5. Continue from the first unmet requirement; do not restart blindly.
+
+If the repository is empty, create the monorepo specified below.
+
+Autonomous execution rules
+
+• Work continuously through the implementation sequence in this file.
+• Treat phases and slices as internal checkpoints, not reasons to stop.
+• Do not ask for ordinary implementation choices. Use the defaults here.
+• Ask only for a genuine human-only blocker such as unavailable credentials
+required for a live external action. Continue all other locally implementable
+work using adapters, local substitutes, and test doubles.
+• Do not deploy, purchase services, send real email, charge money, modify DNS,
+or mutate production without explicit authorization.
+• Never claim something works unless you ran the relevant check.
+• Do not leave core flows as TODOs, dead buttons, static mockups, fake CRUD, or
+hard-coded success responses.
+• Never weaken authorization to make tests pass.
+• Never expose secrets or the Supabase service-role key to browser code.
+• Make reasonable reversible decisions and document meaningful ones in ADRs.
+• Keep a running docs/CURRENT_STATE.md, but do not stop to report milestones.
+• At the end, provide one concise report: implemented scope, commands run,
+passing checks, deferred external setup, and any real residual risks.
+
+Definition of success
+
+The repository must contain:
+
+• A polished public marketing site.
+• A secure authenticated CRM at the app surface.
+• Workspace onboarding and collaboration.
+• Working CRM, client, delivery, approval, time, reporting, customization,
+notification, import/export, and client-portal foundations.
+• Supabase migrations, seed data, storage policies, and tenant-isolation tests.
+• Responsive, accessible UI with complete loading, empty, error, forbidden,
+and populated states.
+• Unit, integration, database-security, and Playwright end-to-end coverage.
+• Local setup, deployment, recovery, and operational documentation.
+• Passing format, lint, type-check, unit, integration, security, E2E, and
+production-build checks, except checks that truly require missing external
+credentials. Such checks must have deterministic local substitutes.
+
+“Perfect” means production-minded and internally consistent, not dishonest
+claims of zero defects. Prefer secure, tested depth over a huge collection of
+decorative pages.
+
+────────
+
+1. Product definition
+
+1.1 Vision
+
+AgencyOS is a configurable operating system for marketing agencies. It connects
+the complete lifecycle:
+
+Lead → deal → client onboarding → campaign/project delivery → approval →
+reporting → invoice → renewal
+
+Every contact, decision, task, asset, approval, hour, expense, result, and
+relationship should belong to one coherent workspace data graph. It should feel
+custom-built for each agency without requiring that agency to write code.
+
+1.2 Product principles
+
+1. Strong defaults, deep configuration, controlled complexity.
+2. Agency-native concepts: retainers, campaigns, deliverables, client
+approvals, billable work, capacity, profitability, and recurring reporting.
+3. Database-enforced tenant isolation.
+4. Least privilege and explicit internal/client visibility.
+5. Collaboration for employees, contractors, clients, and reviewers.
+6. Progressive disclosure: simple for a small agency, powerful for operations
+teams.
+7. Extensible through custom fields, views, templates, workflows, webhooks, and
+APIs.
+8. Auditable changes, especially permissions, approvals, exports, and finance.
+9. Fast keyboard-friendly daily use.
+10. Accessible, mobile-responsive, and trustworthy.
+
+1.3 Target customers and personas
+
+• Founder/owner: pipeline, revenue, margin, health, risk, and utilization.
+• Sales/account executive: leads, deals, activities, follow-up, forecasting.
+• Account manager: Client 360, requests, communication, renewals, reports.
+• Project/traffic manager: work intake, schedules, dependencies, capacity.
+• Strategist/creative/specialist: assigned work, briefs, files, feedback, time.
+• Finance/operations: retainers, budgets, rates, costs, invoices, exports.
+• Contractor: restricted project/task access.
+• Client stakeholder: portal, requests, files, approvals, reports.
+• Workspace admin: members, teams, roles, configuration, integrations, audit.
+
+1.4 Commercial quality bar
+
+The experience must justify a premium implementation:
+
+• Fast onboarding with realistic templates and demo data.
+• Elegant information density, not a generic admin dashboard.
+• Cross-linked records and a complete activity history.
+• Configurable terminology, fields, statuses, pipelines, views, and branding.
+• Safe external collaboration and client approval.
+• Useful operational intelligence, not vanity charts.
+• Excellent search, keyboard interaction, bulk actions, and saved views.
+• Clear permission and audit behavior.
+
+────────
+
+2. Deployment topology and domains
+
+Use one pnpm/Turborepo monorepo and two separately deployable Vercel projects:
+
+• apps/web: public website at https://example.com
+• apps/app: CRM and client portal at https://app.example.com
+
+For local development:
+
+• public web: http://localhost:3000
+• CRM app: http://localhost:3001
+
+Initial client portal route:
+
+• https://app.example.com/portal/{portalSlug}
+
+Future enterprise options, prepared but not required for initial deployment:
+
+• {agencySlug}.example.com
+• agency-owned custom portal domains
+
+Do not rely on a cross-subdomain authentication cookie. Each application should
+use its own safe callback URLs. Public-site sign-in/sign-up actions may link to
+the app’s auth routes. Configure canonical URLs through environment variables.
+
+────────
+
+3. Required technology
+
+Use these registry-current versions as the starting lock set:
+
+```text
+pnpm                  10.30.2
+turbo                  2.10.7
+next                  16.2.12
+react                 19.2.8
+react-dom             19.2.8
+typescript             7.0.2
+tailwindcss            4.3.3
+@supabase/supabase-js  2.111.0
+@supabase/ssr          0.12.4
+zod                    4.4.3
+vitest                 4.1.10
+@playwright/test       1.62.0
+```
+
+If a verified peer-compatibility issue prevents this exact set from installing
+or building, choose the newest mutually compatible stable version, document the
+reason in docs/adr/, and keep the lockfile deterministic.
+
+Use:
+
+• Next.js App Router, React Server Components, Server Actions where suitable.
+• Strict TypeScript with no casual any.
+• Tailwind CSS and local, accessible component primitives. Shadcn/Radix-style
+components are acceptable; generated source must live in the repository.
+• Supabase Postgres, Auth, Storage, Realtime, local CLI migrations, and generated
+database types.
+• Zod at trust boundaries.
+• React Hook Form or a similarly typed form layer.
+• TanStack Table for data grids and TanStack Query only where client-side
+synchronization genuinely benefits from it.
+• Vitest and Testing Library for unit/component tests.
+• Playwright for browser tests.
+• ESLint and Prettier.
+• Structured logging with sensitive-field redaction.
+
+Avoid unnecessary infrastructure. Postgres is the system of record. Prefer SQL,
+database constraints, transactional RPCs, and Supabase-native scheduling/queues
+before adding another datastore.
+
+────────
+
+4. Repository structure
+
+```text
+.
+├── AGENTS.md
+├── README.md
+├── package.json
+├── pnpm-lock.yaml
+├── pnpm-workspace.yaml
+├── turbo.json
+├── apps/
+│   ├── web/
+│   │   ├── app/
+│   │   ├── components/
+│   │   ├── public/
+│   │   └── tests/
+│   └── app/
+│       ├── app/
+│       │   ├── (auth)/
+│       │   ├── (onboarding)/
+│       │   ├── (workspace)/
+│       │   ├── portal/
+│       │   └── api/
+│       ├── components/
+│       ├── features/
+│       ├── lib/
+│       ├── proxy.ts
+│       └── tests/
+├── packages/
+│   ├── ui/
+│   ├── database/
+│   ├── auth/
+│   ├── domain/
+│   ├── validation/
+│   ├── email/
+│   ├── analytics/
+│   ├── integrations/
+│   └── config/
+├── supabase/
+│   ├── config.toml
+│   ├── migrations/
+│   ├── seed.sql
+│   ├── functions/
+│   └── tests/
+├── tests/
+│   ├── e2e/
+│   ├── integration/
+│   ├── security/
+│   └── fixtures/
+└── docs/
+    ├── CURRENT_STATE.md
+    ├── adr/
+    ├── api/
+    ├── runbooks/
+    └── product/
+```
+
+Package boundaries:
+
+• ui: tokens and reusable accessible presentation components; no business
+authorization.
+• database: generated database types, typed queries, transaction interfaces.
+• auth: Supabase client factories, session helpers, authorization API.
+• domain: pure business rules and entity types.
+• validation: schemas for forms, commands, imports, and APIs.
+• email: templates plus provider interface and local capture adapter.
+• analytics: typed event catalogue and adapters.
+• integrations: OAuth/provider interfaces, encrypted-credential boundaries,
+webhook verification.
+• config: shared lint, TypeScript, environment, and feature-flag definitions.
+
+Do not build a generic repository layer that obscures authorization. Queries
+must make workspace and visibility constraints obvious.
+
+────────
+
+5. Information architecture and routes
+
+5.1 Public website
+
+```text
+/
+/product
+/solutions/agencies
+/solutions/creative
+/solutions/performance-marketing
+/features
+/pricing
+/security
+/templates
+/about
+/contact
+/book-demo
+/docs
+/privacy
+/terms
+```
+
+The homepage needs a polished hero, workflow story, product capability grid,
+role-based benefits, security section, testimonials represented as clearly
+labelled demo content, pricing call-to-action, FAQ, and footer. Do not invent
+real customer logos or factual performance claims.
+
+5.2 Authentication and onboarding
+
+```text
+/sign-in
+/sign-up
+/forgot-password
+/reset-password
+/auth/callback
+/verify-email
+/accept-invite
+/onboarding
+/onboarding/workspace
+/onboarding/template
+```
+
+Support password sign-up/sign-in, magic link, password reset, sign-out, email
+verification, safe internal redirect handling, invitation acceptance, first
+workspace creation, and workspace switching.
+
+5.3 Authenticated application
+
+All workspace routes are scoped by a stable workspace slug:
+
+```text
+/w/{workspaceSlug}
+/w/{workspaceSlug}/my-work
+/w/{workspaceSlug}/search
+/w/{workspaceSlug}/crm/leads
+/w/{workspaceSlug}/crm/contacts
+/w/{workspaceSlug}/crm/companies
+/w/{workspaceSlug}/crm/deals
+/w/{workspaceSlug}/crm/pipelines
+/w/{workspaceSlug}/crm/activities
+/w/{workspaceSlug}/clients
+/w/{workspaceSlug}/clients/{clientId}
+/w/{workspaceSlug}/projects
+/w/{workspaceSlug}/projects/{projectId}
+/w/{workspaceSlug}/tasks
+/w/{workspaceSlug}/campaigns
+/w/{workspaceSlug}/content
+/w/{workspaceSlug}/assets
+/w/{workspaceSlug}/approvals
+/w/{workspaceSlug}/time
+/w/{workspaceSlug}/capacity
+/w/{workspaceSlug}/finance
+/w/{workspaceSlug}/reports
+/w/{workspaceSlug}/automations
+/w/{workspaceSlug}/knowledge
+/w/{workspaceSlug}/notifications
+/w/{workspaceSlug}/settings/general
+/w/{workspaceSlug}/settings/members
+/w/{workspaceSlug}/settings/teams
+/w/{workspaceSlug}/settings/roles
+/w/{workspaceSlug}/settings/customization
+/w/{workspaceSlug}/settings/import-export
+/w/{workspaceSlug}/settings/audit
+/w/{workspaceSlug}/settings/integrations
+```
+
+5.4 Client portal
+
+```text
+/portal/{portalSlug}
+/portal/{portalSlug}/requests
+/portal/{portalSlug}/projects
+/portal/{portalSlug}/approvals
+/portal/{portalSlug}/files
+/portal/{portalSlug}/reports
+```
+
+Portal users see only explicitly shared client records. Never derive portal
+visibility merely from matching workspace membership.
+
+5.5 API and webhook routes
+
+```text
+/api/health
+/api/search
+/api/uploads/sign
+/api/exports/{exportId}
+/api/webhooks/supabase
+/api/webhooks/{provider}
+/api/v1/*
+```
+
+Route handlers must authenticate, validate input, enforce workspace membership
+and permission, apply rate limits where abuse is plausible, and return stable
+machine-readable errors. Webhooks require signature verification, timestamp
+checks, idempotency, replay resistance, and observable failures.
+
+────────
+
+6. User experience and design system
+
+6.1 Visual direction
+
+Build a premium B2B product: calm neutral canvas, sharp typography, subtle depth,
+high information density, restrained accent color, excellent contrast, light and
+dark themes. Avoid a wall of identical cards, excessive gradients, giant empty
+spaces, novelty animations, or stock-dashboard aesthetics.
+
+Use design tokens for:
+
+• semantic color, surface, border, text, status, chart, and focus colors;
+• typography scale and tabular numerals;
+• 4/8-based spacing;
+• radii, shadows, motion duration, and easing;
+• compact/default/comfortable density;
+• responsive breakpoints.
+
+6.2 App shell
+
+• Collapsible primary navigation.
+• Workspace switcher.
+• Breadcrumbs and contextual page actions.
+• Global search and Cmd/Ctrl+K command palette.
+• Quick-create menu.
+• Notification inbox.
+• Recent items and favorites.
+• User menu, theme, help, and keyboard shortcuts.
+
+6.3 Required reusable components
+
+• Data table with server pagination, sorting, filters, column visibility,
+resizing, selection, bulk actions, saved views, URL state, and export.
+• Record page with header, properties, related records, activity timeline,
+comments, files, and actions.
+• Forms with inline validation, dirty-state protection, autosave only where
+safe, and clear server errors.
+• Board, list, calendar, and timeline views.
+• Empty, skeleton, error, forbidden, not-found, and offline-aware states.
+• Dialog, drawer, popover, combobox, date picker, command menu, toast, tabs,
+status badge, avatar, metric, chart, and file uploader.
+
+6.4 Accessibility
+
+• Target WCAG 2.2 AA.
+• Full keyboard navigation and visible focus.
+• Semantic HTML, correct names/descriptions, logical headings, and live regions.
+• Dialog focus containment and restoration.
+• Never communicate status with color alone.
+• Respect reduced motion.
+• Minimum practical touch targets on mobile.
+• Test key routes with automated accessibility checks and keyboard E2E paths.
+
+────────
+
+7. Tenant, identity, roles, and invitations
+
+7.1 Tenancy rules
+
+• A person has one Supabase Auth identity and may belong to many workspaces.
+• Every tenant-owned record has a non-null workspace_id.
+• URL workspace slugs are resolved server-side; browser-supplied workspace IDs
+are never trusted.
+• A workspace member may have role assignments and team memberships.
+• Client contacts are not automatically internal members.
+• Service-role operations are isolated to small server-only modules.
+• All cross-entity relationships must belong to the same workspace, enforced by
+constraints or triggers, not application convention.
+
+7.2 Default roles
+
+• Owner
+• Administrator
+• Operations
+• Sales
+• Account Manager
+• Team Member
+• Contractor
+• Finance
+• Client
+• Guest Reviewer
+
+Roles are workspace-specific. Owner is protected from accidental removal.
+Custom roles are allowed. A user can hold multiple roles; permissions combine,
+while explicit data visibility remains restrictive.
+
+7.3 Permission catalogue
+
+Use stable keys, including:
+
+```text
+workspace.read, workspace.update, workspace.delete
+members.read, members.invite, members.update, members.remove
+roles.read, roles.manage
+teams.read, teams.manage
+audit.read
+crm.read, crm.create, crm.update, crm.delete, crm.export
+clients.read, clients.create, clients.update, clients.delete
+projects.read, projects.create, projects.update, projects.delete
+tasks.read, tasks.create, tasks.update, tasks.delete, tasks.assign
+campaigns.read, campaigns.manage
+content.read, content.manage
+files.read, files.upload, files.delete
+comments.read, comments.create, comments.moderate
+approvals.read, approvals.request, approvals.decide
+time.read_own, time.manage_own, time.read_all, time.approve
+finance.read, finance.manage, finance.export
+reports.read, reports.create, reports.share
+automations.read, automations.manage
+settings.read, settings.manage
+integrations.read, integrations.manage
+portal.manage, exports.create
+```
+
+7.4 Invitation lifecycle
+
+1. Authorized member enters email, role(s), optional team(s), and expiry.
+2. Server normalizes email, checks seat/policy rules, and creates one invitation
+transactionally.
+3. Store only a cryptographic hash of the bearer token.
+4. Send through an email adapter; local development writes to a capture inbox.
+5. Recipient signs in or signs up.
+6. Acceptance validates token hash, normalized email, expiry, revocation,
+existing membership, and inviter authorization.
+7. Membership/role/team creation and invite consumption happen atomically.
+8. Emit audit and notification events.
+9. Admin may resend with token rotation or revoke.
+
+Prevent invite replay, privilege escalation, duplicate membership, email-case
+bugs, and timing-dependent partial acceptance.
+
+────────
+
+8. Database contract
+
+8.1 Common conventions
+
+Use UUID primary keys (gen_random_uuid()), timestamptz, snake_case, and:
+
+```text
+id uuid primary key
+workspace_id uuid not null        -- on every tenant-owned table
+created_at timestamptz not null default now()
+updated_at timestamptz not null default now()
+created_by uuid null
+updated_by uuid null
+archived_at timestamptz null      -- where archival is useful
+version integer not null default 1 -- approval/concurrency-sensitive records
+```
+
+Use database enums only for genuinely stable states. Use lookup/config tables
+for workspace-customizable statuses. Add:
+
+• foreign keys and deliberate deletion behavior;
+• unique constraints scoped to workspace;
+• indexes beginning with workspace_id;
+• indexes for foreign keys, frequent filters, status, due date, assignee, and
+full-text search;
+• checks for nonnegative quantities and valid date/order ranges;
+• automatic updated_at;
+• same-workspace relationship guards;
+• normalized searchable email/domain fields where applicable.
+
+Money uses integer minor units plus ISO currency code. Durations use integer
+minutes. Store display time zone as an IANA identifier.
+
+8.2 Identity and configuration tables
+
+Implement:
+
+• profiles(user_id, display_name, avatar_path, locale, timezone)
+• workspaces(name, slug, timezone, currency, locale, logo_path, settings_json)
+• workspace_memberships(workspace_id, user_id, status, title, joined_at)
+• roles(workspace_id, name, description, is_system)
+• permissions(key, description)
+• role_permissions(role_id, permission_id)
+• membership_roles(membership_id, role_id)
+• teams(workspace_id, name, description)
+• team_memberships(team_id, membership_id)
+• invitations(workspace_id, email_normalized, token_hash, expires_at, accepted_at, revoked_at, invited_by)
+• invitation_roles(invitation_id, role_id)
+• invitation_teams(invitation_id, team_id)
+• feature_flags(workspace_id, key, enabled, config_json)
+• workspace_preferences(workspace_id, user_id, preferences_json)
+• audit_events(workspace_id, actor_user_id, action, entity_type, entity_id, before_json, after_json, ip_hash, user_agent_summary, occurred_at)
+
+Audit events are append-only to ordinary users.
+
+8.3 CRM tables
+
+• companies(name, domain, website, industry, size_band, phone, owner_user_id, lifecycle_stage, address_json)
+• contacts(company_id, first_name, last_name, email, phone, job_title, owner_user_id, lifecycle_stage, marketing_consent, portal_identity_id)
+• leads(contact_id, company_id, source, score, status_id, owner_user_id, qualified_at, disqualified_reason)
+• pipelines(name, entity_type, is_default)
+• pipeline_stages(pipeline_id, name, position, probability, color, is_closed, is_won)
+• deals(company_id, primary_contact_id, pipeline_id, stage_id, name, amount_minor, currency, probability, expected_close_date, owner_user_id, won_at, lost_at, lost_reason)
+• activities(entity_type, entity_id, activity_type, subject, body, due_at, completed_at, owner_user_id)
+• tags(name, color) and entity_tags(tag_id, entity_type, entity_id)
+• notes(entity_type, entity_id, body_rich, visibility)
+
+Implement lead/contact/company/deal CRUD, duplicate suggestions, merge with an
+audit trail, configurable pipelines, drag-and-drop stage movement, activities,
+bulk actions, import/export, and conversion from won deal to client onboarding.
+
+8.4 Client and commercial tables
+
+• clients(company_id, name, code, status, health_score, health_reason, owner_user_id, portal_slug, portal_enabled, onboarding_status, start_date, renewal_date)
+• client_contacts(client_id, contact_id, relationship_role, is_primary, portal_access)
+• service_catalog(name, description, default_rate_minor, billing_unit, active)
+• retainers(client_id, name, start_date, end_date, amount_minor, currency, included_minutes, rollover_policy, status)
+• contracts(client_id, title, status, starts_on, ends_on, value_minor, currency, file_id)
+• client_requests(client_id, title, description, priority, status, requester_contact_id, assigned_user_id, due_at)
+• client_health_events(client_id, score, reason, source, occurred_at)
+
+Client 360 must show stakeholders, deals, projects, campaigns, requests, files,
+approvals, logged time, financial summary, health, renewal, and activity.
+
+8.5 Delivery tables
+
+• project_templates(name, description, template_json)
+• projects(client_id, name, code, description, status_id, owner_user_id, start_date, due_date, budget_minor, currency, budget_minutes, visibility)
+• project_statuses(name, position, color, category)
+• project_members(project_id, membership_id, access_level)
+• milestones(project_id, name, due_date, status)
+• task_statuses(name, position, color, category)
+• tasks(project_id, parent_task_id, milestone_id, name, description_rich, status_id, priority, assignee_user_id, start_at, due_at, estimate_minutes, billable, position, visibility)
+• task_dependencies(task_id, depends_on_task_id)
+• task_watchers(task_id, user_id)
+• campaigns(client_id, project_id, name, channel, objective, status, start_date, end_date, budget_minor, currency, owner_user_id)
+• deliverables(project_id, campaign_id, task_id, client_id, name, type, status, due_at, owner_user_id, current_version_id, visibility)
+• content_items(campaign_id, deliverable_id, channel, title, body_rich, publish_at, status, owner_user_id)
+
+Support list, board, calendar, and timeline views; templates; dependencies;
+recurring tasks; subtasks; watchers; bulk edit; filters; saved views; and
+permission-aware workload.
+
+8.6 Collaboration, files, and approval tables
+
+• comments(entity_type, entity_id, parent_comment_id, body_rich, visibility, author_user_id, edited_at)
+• comment_mentions(comment_id, mentioned_user_id)
+• activity_events(actor_user_id, verb, entity_type, entity_id, metadata_json, visibility, occurred_at)
+• notifications(user_id, type, title, body, entity_type, entity_id, read_at, emailed_at)
+• files(bucket, object_path, original_name, content_type, size_bytes, checksum, uploader_user_id, visibility, scan_status)
+• file_links(file_id, entity_type, entity_id)
+• deliverable_versions(deliverable_id, version_number, file_id, notes, created_by)
+• approval_requests(entity_type, entity_id, version_number, title, instructions, status, due_at, requested_by, decided_at)
+• approval_steps(approval_request_id, position, approver_type, approver_id, status, decided_at, decision_note)
+• approval_events(approval_request_id, actor_user_id, action, note, occurred_at)
+
+Internal, client-visible, and restricted visibility must be explicit. Mentions
+create notifications only if the recipient can access the target. Editing a
+deliverable after approval creates a new version and does not silently preserve
+the old approval. Approval decisions are append-only events and auditable.
+
+8.7 Time, capacity, and finance tables
+
+• time_entries(project_id, task_id, client_id, user_id, started_at, ended_at, minutes, description, billable, rate_minor, currency, status)
+• timesheets(user_id, period_start, period_end, status, submitted_at, approved_at, approved_by)
+• capacity_allocations(user_id, project_id, starts_on, ends_on, allocated_minutes)
+• rate_cards(client_id, service_id, role_id, rate_minor, currency, starts_on)
+• expenses(client_id, project_id, category, amount_minor, currency, incurred_on, billable, receipt_file_id, status)
+• estimates(client_id, status, currency, subtotal_minor, tax_minor, total_minor, valid_until)
+• estimate_lines(estimate_id, description, quantity_decimal, unit_price_minor, tax_rate_decimal)
+• invoices(client_id, number, status, currency, issued_on, due_on, subtotal_minor, tax_minor, total_minor, paid_minor)
+• invoice_lines(invoice_id, description, quantity_decimal, unit_price_minor, tax_rate_decimal, project_id, time_entry_id)
+• payments(invoice_id, provider_reference, amount_minor, currency, paid_at, status)
+
+Implement a usable first release for timer/manual time entry, weekly timesheet,
+approval, capacity view, project/client budget burn, and profitability:
+
+```text
+recognized revenue - labor cost - expenses = gross profit
+gross profit / recognized revenue = gross margin
+```
+
+Never use floating-point arithmetic for money. Finance pages require dedicated
+permissions. Payment and accounting providers use adapters; local mode must
+work without real accounts.
+
+8.8 Customization, reporting, automation, and integrations
+
+• custom_field_definitions(entity_type, key, label, data_type, required, options_json, validation_json, position, active)
+• custom_field_values(definition_id, entity_type, entity_id, value_json)
+• saved_views(entity_type, name, owner_user_id, visibility, query_json, columns_json, sort_json)
+• dashboard_definitions(name, owner_user_id, visibility, layout_json)
+• dashboard_widgets(dashboard_id, widget_type, query_json, display_json, position_json)
+• report_definitions(name, subject_type, dimensions_json, measures_json, filters_json, visualization_json, visibility)
+• automation_definitions(name, trigger_type, trigger_config_json, condition_tree_json, enabled, version)
+• automation_actions(automation_id, position, action_type, config_json)
+• automation_runs(automation_id, trigger_event_id, status, idempotency_key, started_at, completed_at, error_summary)
+• automation_action_runs(run_id, action_id, status, attempts, output_json, error_summary)
+• webhook_endpoints(url, secret_ciphertext, event_types_json, enabled)
+• webhook_deliveries(endpoint_id, event_id, status, attempts, next_attempt_at, response_code)
+• integration_connections(provider, status, scopes_json, credential_reference, connected_by, last_synced_at)
+• import_jobs(type, file_id, mapping_json, status, totals_json, error_file_id)
+• export_jobs(type, query_json, status, object_path, expires_at)
+
+Custom fields must support text, long text, number, currency, percentage,
+boolean, date, datetime, single select, multi-select, email, URL, phone, user,
+company, contact, and client relationship. Validate values against definitions.
+
+Store custom-field definitions relationally. A JSONB value is acceptable for
+typed values, but core relationships, permissions, money, and workflow state
+must remain first-class columns/tables.
+
+8.9 Search and event model
+
+Create a permission-aware global search across contacts, companies, leads,
+deals, clients, projects, tasks, campaigns, deliverables, and knowledge. Start
+with Postgres full-text/trigram search and a unified indexed search document
+projection. Never return a result the caller cannot open.
+
+Domain mutations should emit transactional outbox events:
+
+• stable event ID and type;
+• workspace, actor, entity, version, timestamp, and safe payload;
+• idempotent consumers;
+• retry/backoff and dead-letter visibility;
+• no sensitive credentials in payloads.
+
+Use events for activity, notifications, automation, webhook delivery, and search
+projection without making user-facing transactions depend on external services.
+
+────────
+
+9. Supabase security contract
+
+9.1 Client/session architecture
+
+• Browser: createBrowserClient from @supabase/ssr.
+• Server: a new request-scoped createServerClient using the framework cookie
+API; never share a mutable server client globally.
+• Next.js 16: use proxy.ts to refresh auth cookies where required.
+• Apply current Supabase SSR cache-control behavior so responses that set auth
+cookies cannot be cached and served across users.
+• On protected server work, validate the user against Supabase Auth; do not
+authorize from an unverified browser payload.
+• Validate next redirects as local allow-listed paths. Reject protocol-relative
+and external URLs.
+• Keep secret/service keys in server-only modules with import guards.
+
+9.2 Private authorization helpers
+
+Create a non-exposed private schema with carefully reviewed
+security definer helpers, for example:
+
+```sql
+private.is_workspace_member(target_workspace_id uuid)
+private.has_permission(target_workspace_id uuid, permission_key text)
+private.can_access_client(target_client_id uuid)
+private.can_access_project(target_project_id uuid)
+private.can_access_entity(target_type text, target_id uuid)
+```
+
+Each definer function must:
+
+• set an explicit safe search_path;
+• schema-qualify referenced objects;
+• avoid user-controlled dynamic SQL;
+• be owned by a non-login privileged role where supported;
+• revoke execution from public and grant only what is necessary;
+• avoid recursive RLS policy evaluation;
+• return false for unauthenticated, suspended, or cross-workspace requests.
+
+9.3 RLS invariants
+
+Enable RLS on every exposed table, including lookup/config tables containing
+workspace data. Policies must cover select, insert, update, and delete
+deliberately.
+
+Every tenant policy must enforce:
+
+1. The authenticated caller is an active member of the row’s workspace.
+2. The caller has the required action permission.
+3. The caller satisfies entity visibility rules.
+4. with check prevents changing workspace_id, owner, or protected state to
+escape authorization.
+
+Client/guest policies additionally require an explicit portal/client grant.
+Contractor access should be restricted to assigned/shared projects where the
+role policy requires it.
+
+Never treat hidden navigation, a disabled button, or a Server Component as an
+authorization boundary. Re-check permission in the server command/database.
+
+9.4 Database API hardening
+
+• Audit table/function grants as well as RLS.
+• Revoke unnecessary default privileges from anon and authenticated.
+• Expose only required schemas through the data API.
+• Keep internal tables/functions in private schemas.
+• Do not expose arbitrary security definer RPCs.
+• Add rate/size limits and authorization to exports and file signing.
+• Use server-only service-role access only for trusted jobs that cannot operate
+under a user token.
+
+9.5 Relationship integrity
+
+For every reference between tenant-owned rows, ensure the child and parent have
+the same workspace_id. Use composite foreign keys or deferrable constraint
+triggers. Cover both insert and update. Include tests attempting to connect
+records from two workspaces.
+
+9.6 Storage
+
+Use private buckets:
+
+```text
+workspace-assets
+avatars
+imports
+exports
+```
+
+Paths must be non-guessable and begin with the authorized workspace identifier
+where tenant-owned. Add RLS policies on storage.objects for read/upload/update/
+delete. Validate object ownership and linked entity access. Use short-lived
+signed URLs. Validate file size and MIME using server-observed metadata; do not
+trust extensions. Track scan status and prevent client-visible use until safe.
+Exports expire and are deleted by a scheduled cleanup.
+
+9.7 Required negative security tests
+
+Using two workspaces, internal users, a contractor, a client user, a suspended
+member, and unauthenticated access, prove that:
+
+• no table leaks rows across workspaces;
+• guessed UUIDs and modified slugs fail;
+• inserts cannot claim another workspace;
+• updates cannot move rows between workspaces;
+• cross-workspace foreign keys fail;
+• unauthorized role/member changes fail;
+• a user cannot grant permissions they are not allowed to manage;
+• client users cannot read internal comments/files/finance;
+• contractor access is limited as configured;
+• invitation tokens cannot be replayed or accepted by another email;
+• signed URLs cannot be issued without entity access;
+• search, exports, notifications, realtime channels, and reports do not leak;
+• service-role modules cannot enter the client bundle.
+
+────────
+
+10. Feature contract
+
+10.1 Release-critical P0
+
+Implement completely:
+
+Platform and identity
+
+• Password and magic-link auth, email verification, reset, sign-out.
+• Workspace creation, switching, profile, preferences.
+• Member invitations, resend/revoke/accept.
+• Teams, system/custom roles, permission matrix.
+• Audit log and workspace settings.
+
+CRM
+
+• Contacts, companies, leads, deals, activities, notes, tags.
+• Configurable pipeline and stages.
+• Table and board views.
+• Search, filters, sorting, saved views, bulk actions.
+• CSV import with preview/mapping/validation/error report.
+• Permission-aware CSV export.
+• Duplicate warning and safe merge.
+• Deal won → client/project onboarding workflow.
+
+Client operations
+
+• Client 360 and stakeholders.
+• Client status, health, renewal, services, retainer summary.
+• Onboarding checklist from template.
+• Requests and activity timeline.
+
+Delivery
+
+• Projects from templates.
+• Tasks, subtasks, dependencies, statuses, priorities, assignees, watchers.
+• List, board, calendar, and lightweight timeline.
+• Campaigns, deliverables, content calendar.
+• Comments, mentions, files, versions, activity.
+• Approval request, sequential steps, approve/request changes, immutable events.
+
+Collaboration
+
+• Notification inbox and unread count.
+• In-app comment threads and mentions.
+• Internal/client visibility labels.
+• Realtime refresh/presence where useful; correctness must not depend on realtime.
+• Client portal for shared projects, requests, files, approvals, and reports.
+
+Operations
+
+• Timer and manual time entries.
+• Weekly timesheet submit/approve.
+• Capacity allocation and workload view.
+• Budget burn and basic client/project profitability.
+• Role-aware home dashboards and configurable widgets.
+• Global search and command palette.
+• Custom fields and saved views.
+
+Quality and operations
+
+• Seeded demo agency.
+• Complete states and permission-aware UI.
+• Audit/security tests, E2E critical paths.
+• Docs and deployment configuration.
+
+10.2 P1 premium depth
+
+Implement after P0 without stopping:
+
+• Recurring tasks, milestones, baselines, project risks.
+• Creative request intake forms.
+• Asset library with metadata, tags, versions, collections, expiration.
+• Rich proofing annotations if feasible; otherwise a solid version/comment
+approval flow with an extensible annotation model.
+• Advanced retainer consumption and rollover.
+• Estimate/invoice creation, PDF-ready rendering, payment/accounting adapters.
+• Expenses, rate cards, labor cost, margin forecasting.
+• Report builder with dimensions, measures, filters, charts, tables, schedules.
+• Dashboard templates by role.
+• Workflow automation: record created/updated, stage changed, due date,
+approval, form submission, schedule, and webhook triggers; conditions; create/
+update record, assign, notify, email-adapter, task, and webhook actions.
+• Automation run logs, retries, idempotency, and manual replay.
+• Knowledge/SOP pages linked to clients/projects.
+• Public/branded intake forms with spam protection and mapping.
+• Customizable terminology, navigation visibility, status libraries, and
+workspace branding.
+• Outbound signed webhooks and API-key-ready API boundary.
+
+10.3 P2 enterprise and niche catalogue
+
+Build architecture and database seams now; implement as much working depth as
+time permits only after P0 and P1 checks pass:
+
+• Multi-brand/division hierarchy.
+• Resource skills, leave, tentative bookings, scenario planning.
+• Statement of work, change request, purchase order, and vendor management.
+• Multi-currency reporting and revenue recognition.
+• Client success playbooks, churn prediction inputs, QBR packs.
+• Social/content publishing provider adapters and UTM governance.
+• SEO/PPC/paid-social connector adapters and normalized performance metrics.
+• Email/calendar sync adapters, meeting summaries, and communication capture.
+• White-label portal themes and custom domains.
+• SSO/SAML/SCIM adapter boundaries, IP allow lists, session controls.
+• Legal hold, configurable retention, export/deletion workflows.
+• Sandbox workspace and configuration promotion.
+• AI assistant boundaries for summarization, drafting, classification, semantic
+search, risk flags, and next-action suggestions.
+
+AI features must be assistive, permission-aware, source-linked, reviewable,
+opt-in, and disabled cleanly without an AI provider. Never train on tenant data
+by default. Never execute destructive actions from model output without a
+validated human confirmation.
+
+────────
+
+11. Core workflows and acceptance criteria
+
+11.1 New agency
+
+1. User signs up and verifies.
+2. Creates workspace with name, slug, currency, time zone.
+3. Atomic transaction creates owner membership, default roles/permissions,
+statuses, pipeline, templates, dashboard, and feature flags.
+4. User lands in guided onboarding and may load demo data.
+
+Pass when partial failure leaves no orphaned workspace and another workspace
+cannot observe any created data.
+
+11.2 Invite colleague
+
+Owner invites a teammate with role/team. Recipient accepts using the invited
+email, joins the workspace, and sees only allowed navigation and records. Resend,
+expiry, revoke, duplicate, changed-email, and replay behavior must be tested.
+
+11.3 Lead to revenue
+
+Import or create lead → qualify → associate contact/company → create deal →
+advance stage with activity logging → mark won → invoke an idempotent onboarding
+command that creates/links client, project from template, onboarding tasks, and
+activity/audit events.
+
+11.4 Delivery and approval
+
+Create project → assign task → upload deliverable version → request approval →
+client receives safe notification and opens portal → approve or request changes
+→ immutable decision appears internally and externally according to visibility.
+New version requires new approval.
+
+11.5 Time and profitability
+
+Member records billable/nonbillable time → submits timesheet → manager approves
+→ budget burn, utilization, and projected margin update. Unauthorized users
+cannot view costs or organization-wide time.
+
+11.6 Customization
+
+Admin adds a custom field, adds it to a form/list, enters valid data, filters and
+exports it. Invalid values fail on both server and database-compatible
+validation. Removing a definition is archival and does not silently destroy
+historic data.
+
+11.7 Import/export
+
+Upload CSV → preview → map fields → validate → execute idempotently → report
+created/updated/skipped/error rows → download error CSV. Export respects current
+filters, selected columns, field-level sensitivity, permissions, and audit log.
+
+11.8 Portal isolation
+
+Client user sees explicitly shared records for their client only. They never see
+internal comments, costs, other clients, workspace settings, unpublished
+reports, or unshared files. Direct URL guessing and search must fail.
+
+────────
+
+12. Realtime, jobs, email, and integrations
+
+12.1 Realtime
+
+Use Supabase Realtime for notification count, comments, relevant record changes,
+and optional presence. Authorize private channels. Always refetch through normal
+RLS-protected queries; realtime payloads are hints, not the source of truth.
+
+12.2 Background jobs
+
+Use a Postgres-native queue/outbox approach with:
+
+• idempotency keys and unique constraints;
+• explicit attempt count and exponential backoff;
+• visibility timeout/lease;
+• max attempts and dead-letter state;
+• structured error summaries;
+• operator-visible run history;
+• scheduled sweeps for stuck work.
+
+Use Supabase Cron for scheduled reports, reminders, recurring tasks, webhook
+retries, cleanup, and queue invocation. Keep secrets in Vault/server
+environment, never in job payloads.
+
+12.3 Email
+
+Define a provider-neutral interface. Local/test adapter captures messages for
+assertions. Templates:
+
+• invite;
+• magic link/auth handled appropriately by Supabase;
+• mention;
+• assignment;
+• approaching/overdue task;
+• approval requested/decided;
+• weekly digest;
+• report ready.
+
+Every email honors tenant branding, user preferences, audience visibility, and
+safe deep links. Do not send email within an open database transaction.
+
+12.4 External integrations
+
+Use adapters and connection records. OAuth credentials/tokens are encrypted or
+referenced through a secret store, never returned to the browser or logged.
+Normalize provider webhooks to internal events. Include deterministic mocks for
+local/test. A missing external account must not break core CRM functionality.
+
+────────
+
+13. Reporting and metrics
+
+Provide role-aware dashboards:
+
+• Executive: pipeline, forecast, revenue, margin, utilization, client health,
+overdue work.
+• Sales: lead velocity, conversion, deal stage, weighted forecast, activities.
+• Delivery: work by status, overdue risk, planned versus actual, capacity.
+• Account: health, request SLA, approval aging, renewal, report status.
+• Individual: assigned work, priorities, deadlines, logged time.
+
+Definitions must be explicit:
+
+```text
+weighted pipeline = sum(open deal amount × stage probability)
+win rate = won deals / closed deals
+utilization = billable approved minutes / available minutes
+budget burn = actual approved cost or time / approved budget
+approval age = now - approval requested timestamp
+```
+
+Filters include date range, client, project, team, owner, service, and status.
+All report queries must be workspace/visibility safe. Paginate underlying detail
+and constrain expensive arbitrary queries. Client report publication is an
+explicit action with a snapshot/version.
+
+────────
+
+14. Performance, reliability, and observability
+
+• Server-side pagination; never fetch whole tenant tables for lists.
+• URL-backed table filter/sort/view state.
+• Avoid N+1 queries and unbounded relation expansion.
+• Add query indexes based on real access patterns and inspect representative
+plans.
+• Use optimistic UI only when conflicts and rollback are handled.
+• Use version checks for concurrent approval/configuration edits.
+• Dynamic authenticated responses must not enter a shared cache.
+• Health endpoint reports application readiness without leaking secrets.
+• Structured logs include request/correlation ID, workspace when safe, actor,
+action, latency, and result; redact tokens, credentials, message bodies, and
+sensitive personal data.
+• Capture server/client exceptions through an adapter that is a no-op locally.
+• Track audit events separately from debug logs.
+• Provide runbooks for migrations, stuck jobs, webhook replay, invite problems,
+storage incidents, tenant leakage response, and restore validation.
+
+Initial performance targets under representative seeded data:
+
+• common authenticated navigation: useful response within 1 second on a normal
+development connection, excluding cold start;
+• filtered list queries: p95 database execution target under 300 ms;
+• command feedback: visible within 500 ms where no external provider is needed;
+• public pages: strong Core Web Vitals and no unnecessary client JavaScript.
+
+Do not falsify benchmarks. Record the environment and dataset used.
+
+────────
+
+15. Testing contract
+
+15.1 Unit/component
+
+Test:
+
+• permission composition and protected owner rules;
+• money/time calculations;
+• pipeline transitions;
+• approval state machine and version behavior;
+• invitation validation;
+• custom-field validation;
+• import mapping;
+• automation condition evaluation/idempotency;
+• form error, keyboard, and accessible interactions.
+
+15.2 Database/integration
+
+Run against local Supabase:
+
+• migrations from empty database;
+• seed repeatability;
+• constraints and same-workspace guards;
+• all RLS policies using real JWT contexts;
+• authorization helper behavior;
+• transactional workspace creation;
+• invitation acceptance concurrency;
+• deal-to-client idempotency;
+• approval concurrency;
+• imports and outbox claiming;
+• storage object policies.
+
+15.3 E2E
+
+Playwright must cover:
+
+1. sign-up/sign-in/reset/sign-out;
+2. workspace onboarding;
+3. invite and accept colleague;
+4. role restricts navigation and server mutation;
+5. create/import CRM records;
+6. move deal and convert won deal;
+7. create project/task and collaborate;
+8. upload version and complete client approval;
+9. record/approve time and view budget;
+10. add/use custom field and saved view;
+11. global search;
+12. client portal isolation;
+13. two-workspace direct-URL isolation;
+14. responsive smoke checks;
+15. keyboard and accessibility checks on critical flows.
+
+Tests must be deterministic, parallel-safe where practical, and avoid depending
+on production services.
+
+15.4 Required commands
+
+Create root scripts analogous to:
+
+```bash
+pnpm format:check
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm test:integration
+pnpm test:security
+pnpm test:e2e
+pnpm build
+pnpm verify
+```
+
+pnpm verify runs the appropriate complete local gate. CI should install with a
+frozen lockfile, start local dependencies, migrate/seed, run checks, and build
+both apps.
+
+────────
+
+16. Demo data
+
+Seed an obviously fictional agency, Northstar Growth Studio, with:
+
+• one owner, admin, sales user, account manager, contributor, contractor, and
+client portal identity;
+• two workspaces in security fixtures;
+• three clients with different health states;
+• contacts, companies, leads, deals across stages;
+• projects, milestones, tasks, campaigns, content, deliverable versions;
+• internal and client-visible comments/files;
+• one pending and one completed approval;
+• time entries, capacity, retainer, rate card, expense, draft invoice;
+• custom fields, saved views, dashboards, automation definitions;
+• enough records to exercise pagination and filters.
+
+Use stable fixture identifiers where tests need them. Never represent demo
+companies/testimonials as real customers.
+
+────────
+
+17. Environment and configuration
+
+Create validated .env.example files. Expected names include:
+
+```text
+NEXT_PUBLIC_SITE_URL
+NEXT_PUBLIC_APP_URL
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+SUPABASE_SERVICE_ROLE_KEY
+DATABASE_URL
+DIRECT_URL
+EMAIL_PROVIDER
+EMAIL_FROM
+EMAIL_API_KEY
+CRON_SECRET
+WEBHOOK_ENCRYPTION_KEY
+OBSERVABILITY_DSN
+```
+
+Rules:
+
+• Only NEXT_PUBLIC_* values may reach browser bundles.
+• Fail startup with a helpful message for missing mandatory variables.
+• Service-role, direct database, provider, cron, and encryption secrets are
+server-only.
+• Local/test modes use capture/no-op adapters.
+• Document Supabase redirect allow-list entries for local, preview, and
+production URLs.
+• Document two Vercel project root directories and environment mapping.
+
+────────
+
+18. Implementation sequence
+
+Execute this sequence without user-facing milestone handoffs.
+
+Phase 0 — Baseline
+
+• Inspect repo and current state.
+• Establish monorepo, toolchain, CI, environment validation, design tokens.
+• Add ADRs for tenancy, authorization, custom fields, event/outbox, portal
+visibility, and deployment topology.
+• Start local Supabase and prove migrations work from empty.
+
+Exit: clean install, both apps render, checks run, architecture decisions exist.
+
+Phase 1 — Identity and tenant security
+
+• Auth/session flows.
+• Workspace/profile/membership/role/team/invitation schema.
+• Atomic workspace creation and default seeds.
+• Private authorization helpers, grants, RLS, relationship guards.
+• Member/role/team/invite UI and audit.
+• Two-workspace isolation suite.
+
+Exit: identity workflows work E2E and every exposed table is intentionally
+secured.
+
+Phase 2 — CRM vertical slice
+
+• Companies, contacts, leads, deals, pipelines, activities, notes, tags.
+• Configurable stages, table/board, record page, filters/saved views.
+• Import/export, duplicates, merge.
+• Lead/deal conversion and full audit/activity.
+
+Exit: a user can operate the sales lifecycle; denied roles and cross-workspace
+actors fail at every layer.
+
+Phase 3 — Client and delivery
+
+• Client 360, contacts, health, onboarding, requests.
+• Projects/templates, tasks/subtasks/dependencies, views.
+• Campaigns, content, deliverables.
+• Comments, mentions, notifications, files, versions.
+
+Exit: internal team can deliver a client project with complete states and
+authorization.
+
+Phase 4 — Portal and approvals
+
+• Portal identity/access, explicit sharing, branded shell.
+• Approval state machine and versioning.
+• Client requests, comments, files, reports.
+• Portal isolation and E2E.
+
+Exit: client can collaborate without seeing any internal/other-client data.
+
+Phase 5 — Time, capacity, finance foundation
+
+• Timer/manual entries, timesheets, approval.
+• Capacity allocation/workload.
+• Retainers, rate cards, expenses, budget burn, profitability.
+• Estimates/invoices and provider-neutral boundaries.
+
+Exit: operational and financial metrics reconcile against fixture calculations.
+
+Phase 6 — Customization and intelligence
+
+• Custom fields, statuses, terminology, feature flags.
+• Saved views, dashboards, report builder.
+• Global search and command palette.
+• Role-aware home dashboards.
+
+Exit: configuration affects real forms, lists, search, reports, and exports
+without bypassing authorization.
+
+Phase 7 — Automation and integrations
+
+• Outbox/queue worker, scheduled jobs.
+• Automation builder/run log/retry.
+• Email capture/provider, signed webhooks, integration adapters.
+• Import/export hardening and cleanup.
+
+Exit: jobs are idempotent, observable, retryable, and locally testable.
+
+Phase 8 — Premium polish and hardening
+
+• P1 features and selected high-value P2 seams.
+• Accessibility and responsive audit.
+• Performance tuning with representative data.
+• Threat-model review, dependency/security review, recovery/runbooks.
+• Fresh-environment rehearsal and complete verification.
+
+Exit: Definition of Done below passes.
+
+────────
+
+19. Global Definition of Done
+
+Do not declare completion until:
+
+☐ Fresh clone/install succeeds from documented commands.
+☐ Local Supabase starts; all forward migrations apply from empty.
+☐ Seed is deterministic and provides usable demo data.
+☐ Public web and app production builds pass.
+☐ Format, lint, strict type-check, unit, component, integration, RLS,
+storage-security, E2E, and accessibility checks pass.
+☐ Every tenant-owned exposed table has intentional RLS and grant review.
+☐ Two-workspace, client, contractor, suspended, and unauthenticated negative
+tests pass.
+☐ No secret/service key is present in source, logs, test snapshots, or
+browser bundles.
+☐ Critical flows contain no dead actions, placeholders, or fake success.
+☐ All lists paginate and all mutations validate/authorize server-side.
+☐ Loading, empty, error, forbidden, not-found, and populated UI states exist.
+☐ Keyboard and mobile critical paths work.
+☐ Audit coverage exists for auth-adjacent, permission, export, approval, and
+financial mutations.
+☐ Background work is idempotent, retryable, observable, and recoverable.
+☐ README, ADRs, environment guide, deployment guide, and runbooks match the
+actual implementation.
+☐ docs/CURRENT_STATE.md accurately states completed and deferred scope.
+☐ Final report distinguishes verified facts from items requiring external
+credentials or production authorization.
+
+No implementation can honestly guarantee zero defects. If a requirement cannot
+be completed in the execution window, leave the repository buildable and secure,
+record the exact gap and next command in docs/CURRENT_STATE.md, and prioritize
+security and coherent end-to-end workflows over superficial feature count.
+
+────────
+
+20. Offline implementation resource digest
+
+You cannot browse. Use these researched rules as the platform baseline. The URLs
+are provenance for later human/Codex verification; the actionable information
+is summarized here.
+
+Next.js
+
+Official references:
+
+• App Router: https://nextjs.org/docs/app
+• Authentication guide:
+https://nextjs.org/docs/app/guides/authentication
+• Data security:
+https://nextjs.org/docs/app/guides/data-security
+
+Rules:
+
+• Separate authentication, session management, and authorization.
+• Centralize authorization in a data-access/server-command layer; UI gating is
+only presentation.
+• Treat Server Actions and Route Handlers as externally callable endpoints.
+• Re-authorize every mutation close to the data.
+• Avoid returning whole records when the caller needs a small safe DTO.
+• Protect against unsafe redirects and accidental client imports of server code.
+• In Next.js 16 use the current proxy convention where framework auth refresh
+requires it.
+
+Supabase authentication and SSR
+
+Official references:
+
+• SSR: https://supabase.com/docs/guides/auth/server-side
+• SSR client:
+https://supabase.com/docs/guides/auth/server-side/creating-a-client
+• Advanced SSR:
+https://supabase.com/docs/guides/auth/server-side/advanced-guide
+• Server package choice:
+https://supabase.com/docs/guides/auth/choosing-a-server-package
+• Auth-helper migration:
+https://supabase.com/docs/guides/troubleshooting/how-to-migrate-from-supabase-auth-helpers-to-ssr-package-5NRunM
+
+Rules:
+
+• Use @supabase/ssr; legacy auth helpers are deprecated.
+• Use separate browser and request-scoped server clients.
+• Cookie-based SSR needs token refresh coordinated through server cookies.
+• Current @supabase/ssr passes cache-control information when setting auth
+cookies; preserve it to prevent a CDN from caching and serving one user’s auth
+response to another.
+• Cookie SSR chooses @supabase/ssr; bearer-token API servers may use the
+dedicated server package where appropriate; the base client remains
+@supabase/supabase-js.
+
+Supabase RLS, grants, RBAC, and storage
+
+Official references:
+
+• RLS:
+https://supabase.com/docs/guides/database/postgres/row-level-security
+• RBAC/custom claims:
+https://supabase.com/docs/guides/api/custom-claims-and-role-based-access-control-rbac
+• Data API hardening:
+https://supabase.com/docs/guides/api/securing-your-api
+• Storage access:
+https://supabase.com/docs/guides/storage/security/access-control
+
+Rules:
+
+• Enable RLS on exposed tables and write explicit action policies.
+• RLS and SQL grants are complementary; RLS alone is not the whole API security
+model.
+• Review schema exposure, table/function grants, and default privileges.
+• JWT claims can support RBAC, but claims can be stale until token refresh;
+critical current membership/visibility should be checked in the database.
+• Storage access control is implemented through policies on storage.objects.
+• Service-role access bypasses ordinary RLS and therefore belongs only in narrow
+trusted server/job boundaries.
+
+Supabase Realtime, Queues, Cron, and Vault
+
+Official references:
+
+• Realtime: https://supabase.com/docs/guides/realtime
+• Presence: https://supabase.com/docs/guides/realtime/presence
+• Realtime authorization:
+https://supabase.com/docs/guides/realtime/authorization
+• Queues: https://supabase.com/docs/guides/queues
+• Cron: https://supabase.com/docs/guides/cron
+• Vault: https://supabase.com/docs/guides/database/vault
+
+Rules:
+
+• Authorize private realtime channels; do not broadcast tenant data on public
+channels.
+• Presence is ephemeral UX state, never authorization or durable truth.
+• Supabase Queues is Postgres-native and suitable for durable work; still design
+idempotency, retries, dead-letter handling, and observability explicitly.
+• Cron schedules database functions/SQL/HTTP-triggered work; scheduled commands
+must be safe to retry.
+• Vault can store encrypted secrets used from database-controlled workflows;
+never expose decrypted values to client queries or logs.
+
+Vercel
+
+Official references:
+
+• Monorepos: https://vercel.com/docs/monorepos
+• Domains: https://vercel.com/docs/domains/working-with-domains
+• Multi-tenant platforms: https://vercel.com/docs/platforms
+
+Rules:
+
+• A monorepo may back multiple Vercel projects with independent root
+directories and deployments.
+• Configure the apex/public domain on the web project and app subdomain on the
+application project.
+• Preview deployments need matching Supabase redirect allow-list handling.
+• Custom-domain portal support is a later platform concern; keep host resolution
+isolated and never use the Host header alone as authorization.
+
+Dependency snapshot
+
+The versions in Section 3 were queried from the npm registry on 2026-07-30.
+Commit the exact resolved lockfile. Run install, type, tests, and both builds
+before accepting the set. Use automated dependency alerts, but do not perform
+unreviewed major upgrades in the middle of a product slice.
+
+────────
+
+21. Final instruction
+
+Begin now. Inspect the current tree, create/update the plan internally, and then
+implement the product. Continue through all locally implementable phases. Do not
+respond with a reformatted specification or ask whether you should start.
+
+Your only final response should be a short factual delivery report containing:
+
+1. completed functional areas;
+2. security/tenant-isolation results;
+3. exact verification commands and outcomes;
+4. external configuration still required;
+5. remaining gaps or risks, if any;
+6. the next exact command for Codex review.
