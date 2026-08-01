@@ -43,8 +43,29 @@ describe("server authorization behavior", () => {
 
   it("safe redirect rejects external and protocol-relative targets", () => {
     expect(isSafeRedirect("/dashboard")).toBe("/dashboard")
+    expect(isSafeRedirect("/w/acme/crm/deals?stage=won")).toBe("/w/acme/crm/deals?stage=won")
     expect(isSafeRedirect("//evil.example")).toBe("/")
     expect(isSafeRedirect("https://evil.example")).toBe("/")
     expect(isSafeRedirect("javascript:alert(1)")).toBe("/")
+  })
+
+  it("safe redirect rejects encoded and backslash open-redirect bypasses", () => {
+    // These are the cases the orphaned root `src/lib/auth.ts` implementation
+    // let through; the shipped one delegates to @agencyos/config, which
+    // decodes before re-checking.
+    expect(isSafeRedirect("/%2f%2fevil.example")).toBe("/")
+    expect(isSafeRedirect("/%5c%5cevil.example")).toBe("/")
+    expect(isSafeRedirect("\\\\evil.example")).toBe("/")
+    expect(isSafeRedirect("/\\evil.example")).toBe("/")
+    expect(isSafeRedirect("/%09javascript:alert(1)")).toBe("/")
+    expect(isSafeRedirect("/path\u0000/null")).toBe("/")
+    expect(isSafeRedirect("/%")).toBe("/") // malformed percent-encoding
+  })
+
+  it("safe redirect rejects non-string and absent targets", () => {
+    expect(isSafeRedirect(undefined)).toBe("/")
+    expect(isSafeRedirect(null)).toBe("/")
+    expect(isSafeRedirect("")).toBe("/")
+    expect(isSafeRedirect("relative/path")).toBe("/")
   })
 })

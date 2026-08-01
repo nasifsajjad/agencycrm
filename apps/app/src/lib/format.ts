@@ -3,24 +3,71 @@
  * No floating-point arithmetic on monetary values.
  */
 
+/** Minor units per major unit. Two-decimal currencies only for now. */
+const MINOR_PER_MAJOR = 100n
+
+/** One thousand and one million major units, expressed in minor units. */
+const THOUSAND_MINOR = 1_000n * MINOR_PER_MAJOR
+const MILLION_MINOR = 1_000_000n * MINOR_PER_MAJOR
+
+function toMinor(minor: bigint | number): bigint {
+  if (typeof minor === "bigint") return minor
+  if (!Number.isInteger(minor)) {
+    throw new TypeError("Monetary values must be integer minor units")
+  }
+  return BigInt(minor)
+}
+
+/**
+ * Exact decimal string for a minor-unit amount, e.g. 90071992547409093n ->
+ * "900719925474090.93". Built with integer arithmetic so values beyond
+ * Number.MAX_SAFE_INTEGER keep every cent.
+ */
+function minorToDecimalString(minor: bigint): string {
+  const negative = minor < 0n
+  const absolute = negative ? -minor : minor
+  const major = absolute / MINOR_PER_MAJOR
+  const cents = absolute % MINOR_PER_MAJOR
+  return `${negative ? "-" : ""}${major}.${cents.toString().padStart(2, "0")}`
+}
+
 export function formatMoney(minor: bigint | number, currency = "USD"): string {
-  const value = typeof minor === "bigint" ? Number(minor) : minor
+  // Intl.NumberFormat accepts a decimal string and formats it at arbitrary
+  // precision. Passing a Number here would silently round anything above
+  // 2^53 cents, which is exactly what this module promises not to do.
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency,
+    minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(value / 100)
+  }).format(minorToDecimalString(toMinor(minor)) as unknown as number)
 }
 
+/**
+ * Abbreviated form for dashboard tiles. Thresholds are compared in minor
+ * units: 1,500,000 minor units is $15,000, so it abbreviates to "$15.0K",
+ * not "$1.5M". The previous implementation compared minor units against
+ * major-unit thresholds and overstated every abbreviated figure by 100x.
+ */
 export function formatMoneyShort(minor: bigint | number, currency = "USD"): string {
-  const value = typeof minor === "bigint" ? Number(minor) : minor
-  if (Math.abs(value) >= 1_000_000) {
-    return `${currency === "USD" ? "$" : ""}${(value / 1_000_000).toFixed(1)}M`
+  const value = toMinor(minor)
+  const absolute = value < 0n ? -value : value
+  const prefix = currency === "USD" ? "$" : ""
+  const sign = value < 0n ? "-" : ""
+
+  if (absolute >= MILLION_MINOR) {
+    return `${sign}${prefix}${scaleToOneDecimal(absolute, MILLION_MINOR)}M`
   }
-  if (Math.abs(value) >= 1_000) {
-    return `${currency === "USD" ? "$" : ""}${(value / 1_000).toFixed(1)}K`
+  if (absolute >= THOUSAND_MINOR) {
+    return `${sign}${prefix}${scaleToOneDecimal(absolute, THOUSAND_MINOR)}K`
   }
-  return formatMoney(minor, currency)
+  return formatMoney(value, currency)
+}
+
+/** absolute / divisor to one decimal place, rounded half-up, without floats. */
+function scaleToOneDecimal(absolute: bigint, divisor: bigint): string {
+  const tenths = (absolute * 10n + divisor / 2n) / divisor
+  return `${tenths / 10n}.${tenths % 10n}`
 }
 
 export function formatMinutes(minutes: number): string {

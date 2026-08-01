@@ -4,7 +4,11 @@ import { resolve } from "node:path"
 export default defineConfig({
   resolve: {
     alias: {
-      "@": resolve(__dirname, "src"),
+      // `@` must resolve to the code that actually ships. It previously pointed
+      // at the root `src/` tree, an orphaned pre-monorepo fork, so the suite
+      // passed against logic no deployed app runs. See docs/adr/0003.
+      "@": resolve(__dirname, "apps/app/src"),
+      "@agencyos/config": resolve(__dirname, "packages/config/src/index.ts"),
       "@agencyos/database": resolve(__dirname, "packages/database/src/index.ts"),
       "@agencyos/domain": resolve(__dirname, "packages/domain/src/index.ts"),
     },
@@ -22,8 +26,8 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],
-      include: ["src/lib/**/*.ts"],
-      exclude: ["src/lib/**/*.d.ts"],
+      include: ["apps/app/src/lib/**/*.ts", "packages/*/src/**/*.ts"],
+      exclude: ["**/*.d.ts"],
     },
     setupFiles: ["tests/setup.ts"],
   },
