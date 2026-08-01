@@ -12,6 +12,9 @@ node_modules
 
 # testing
 /coverage
+/test-results
+/playwright-report
+/blob-report
 
 # next.js
 /.next/
@@ -20,6 +23,10 @@ apps/*/.next/
 
 # production
 /build
+dist
+
+# turbo
+.turbo
 
 # misc
 .DS_Store
@@ -31,25 +38,27 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# env files — never commit real values; .env.example is the tracked contract
+.env
+.env.*
+!.env.example
 
 # vercel
 .vercel
 
-
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local scratch
 local-*
+*.log
+
+# agent/editor tooling
 .claude
 .z-ai-config
-*.log
-dev.log
-dev.out.log
-test
-prompt
 
-server.log
-# Skills directory
-/skills/
+# legacy sandbox database artifacts
+*.db
+*.db-journal
+.storage
