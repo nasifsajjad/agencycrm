@@ -38,6 +38,13 @@ type OutboxRow = OutboxEventPayload & {
 
 type AutomationAction = { id: string; actionType: string; configJson?: unknown }
 
+/**
+ * Attempts before an event moves to the dead-letter state. Must match the
+ * p_max_attempts default in public.fail_outbox_event (migration 0023); it is
+ * passed explicitly on every call so the two cannot drift apart silently.
+ */
+const MAX_OUTBOX_ATTEMPTS = 5
+
 function record(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}
 }
@@ -79,6 +86,7 @@ export async function processOutbox(batchSize = 50) {
   let matched = 0
   let succeeded = 0
   let failed = 0
+  let deadLettered = 0
 
   for (const event of events) {
     processed += 1
@@ -135,39 +143,43 @@ export async function processOutbox(batchSize = 50) {
           const message = error instanceof Error ? error.message : "Automation action failed"
           await serviceDb.automationRun.update({
             where: { id: run.id },
-            data: { status: event.attempts + 1 >= 5 ? "dead_letter" : "failed", completedAt: new Date(), errorSummary: message },
+            // attempts is incremented by claim_outbox_events, so it is already
+            // the current attempt number rather than the previous one.
+            data: { status: event.attempts >= MAX_OUTBOX_ATTEMPTS ? "dead_letter" : "failed", completedAt: new Date(), errorSummary: message },
           })
           failed += 1
         }
       }
 
-      await serviceDb.outboxEvent.update({
-        where: { id: event.id },
-        data: { processedAt: new Date(), lockedAt: null },
+      await serviceRpc("complete_outbox_event", { p_event_id: event.id })
+    } catch (error) {
+      // This catch previously discarded the error object entirely: it recorded
+      // a generic backoff and logged nothing, so a systematically failing
+      // integration was invisible outside the database. Keep the message, on
+      // the row and in the log.
+      const message = error instanceof Error ? error.message : "Outbox processing failed"
+
+      const outcome = await serviceRpc<string>("fail_outbox_event", {
+        p_event_id: event.id,
+        p_error: message,
+        p_max_attempts: MAX_OUTBOX_ATTEMPTS,
       })
-    } catch {
-      // Mark for retry with backoff
-      const attempts = event.attempts + 1
-      const backoff = Math.min(60 * Math.pow(2, attempts), 3600) * 1000
-      await serviceDb.outboxEvent.update({
-        where: { id: event.id },
-        data: {
-          attempts,
-          nextAttemptAt: new Date(Date.now() + backoff),
-          lockedAt: null,
-        },
-      })
-      if (attempts >= 5) {
-        await serviceDb.outboxEvent.update({
-          where: { id: event.id },
-          data: { processedAt: new Date(), lockedAt: null },
-        })
+
+      if (outcome === "dead_letter") {
+        deadLettered += 1
+        console.error(
+          `[outbox] event ${event.id} (${event.eventType}) dead-lettered after ${event.attempts} attempts: ${message}`
+        )
+      } else {
+        console.warn(
+          `[outbox] event ${event.id} (${event.eventType}) failed on attempt ${event.attempts}, will retry: ${message}`
+        )
       }
       failed += 1
     }
   }
 
-  return { processed, matched, succeeded, failed }
+  return { processed, matched, succeeded, failed, deadLettered }
 }
 
 async function executeAction(event: OutboxRow, action: AutomationAction) {
