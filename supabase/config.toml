@@ -6,8 +6,17 @@ project_id = "agencyos"
 [api]
 enabled = true
 port = 54321
-schemas = ["public", "private", "audit", "storage"]
-extra_search_path = ["public", "private", "audit"]
+# `private` must never appear here. Its helpers are written on the assumption
+# that only a SECURITY DEFINER wrapper can reach them — private.record_audit and
+# private.bootstrap_default_workspace trust their arguments and perform no
+# authorization of their own. Exposing the schema turned both into callable RPC
+# endpoints. See migration 0021.
+#
+# This mirrors the hosted project's "Exposed schemas" setting; keep the two in
+# step. RLS policies call private.* with qualified names and do not require the
+# schema to be exposed over the API.
+schemas = ["public", "audit", "storage"]
+extra_search_path = ["public", "audit"]
 max_rows = 1000
 
 [db]

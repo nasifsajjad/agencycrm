@@ -128,6 +128,58 @@ begin
   end;
 end $$;
 
+-- ---------------------------------------------------------------------------
+-- Migration 0021: the `private` schema is internal. Owner B, a fully legitimate
+-- authenticated user, must not be able to reach the two helpers that trust
+-- their arguments. Before 0021 both were granted to `authenticated` and the
+-- schema was exposed over PostgREST, so both of these calls succeeded.
+-- ---------------------------------------------------------------------------
+do $$
+begin
+  -- Forging an audit event into workspace A, a tenant owner B has no
+  -- membership in. public.record_audit checks membership; the private one
+  -- does not, which is exactly why it must not be callable.
+  begin
+    perform private.record_audit(
+      current_setting('app.workspace_a')::uuid,
+      'forged.event', 'workspace', current_setting('app.workspace_a')::uuid,
+      '{}'::jsonb, '{"forged":true}'::jsonb, null, null
+    );
+    raise exception 'private.record_audit was callable by an authenticated user';
+  exception when insufficient_privilege then null;
+  end;
+
+  -- Self-elevation: granting itself an active Owner membership in workspace A.
+  begin
+    perform private.bootstrap_default_workspace(
+      current_setting('app.workspace_a')::uuid,
+      '20000000-0000-4000-8000-000000000002',
+      'Workspace A', 'workspace-a', 'USD', 'UTC'
+    );
+    raise exception 'private.bootstrap_default_workspace was callable by an authenticated user';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+
+-- The predicates RLS depends on must remain callable, or every policy in the
+-- product denies instead of just the intended ones.
+do $$
+begin
+  perform private.is_workspace_member(current_setting('app.workspace_a')::uuid);
+  perform private.has_permission(current_setting('app.workspace_a')::uuid, 'crm.read');
+exception when insufficient_privilege then
+  raise exception '0021 over-revoked: RLS predicates are no longer executable by authenticated';
+end $$;
+
+-- No forged event may have landed.
+reset role;
+do $$
+begin
+  if exists (select 1 from audit.events where action = 'forged.event') then
+    raise exception 'a forged audit event was written to another tenant';
+  end if;
+end $$;
+
 -- Trusted worker requests use service_role deliberately and can observe the
 -- queued tenant record; ordinary authenticated requests above cannot.
 reset role;
