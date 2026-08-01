@@ -180,6 +180,96 @@ begin
   end if;
 end $$;
 
+-- ---------------------------------------------------------------------------
+-- Migration 0022: dashboard widgets inherit their parent dashboard's rules.
+--
+-- Fixture: a third user who is a plain ACTIVE member of workspace A with no
+-- roles attached, so is_workspace_member() is true but
+-- has_permission('settings.manage') is false. That is the exact shape the old
+-- membership-only widget policies failed to distinguish.
+-- ---------------------------------------------------------------------------
+reset role;
+insert into auth.users (
+  id, instance_id, aud, role, email, encrypted_password, email_confirmed_at,
+  raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+) values
+  ('30000000-0000-4000-8000-000000000003', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'member-a@example.test', 'not-used', now(), '{"provider":"email","providers":["email"]}', '{}', now(), now());
+
+insert into public.workspace_memberships (workspace_id, user_id, status, title)
+values (current_setting('app.workspace_a')::uuid, '30000000-0000-4000-8000-000000000003', 'active', 'Member');
+
+-- Owner A creates a PRIVATE dashboard with one widget.
+insert into public.dashboards (id, workspace_id, name, owner_user_id, visibility)
+values (
+  '40000000-0000-4000-8000-000000000004',
+  current_setting('app.workspace_a')::uuid,
+  'Owner A private dashboard',
+  '10000000-0000-4000-8000-000000000001',
+  'private'
+);
+insert into public.dashboard_widgets (id, dashboard_id, widget_type)
+values ('50000000-0000-4000-8000-000000000005', '40000000-0000-4000-8000-000000000004', 'pipeline');
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '30000000-0000-4000-8000-000000000003', true);
+
+do $$
+begin
+  -- Read: a private dashboard's widgets must not be visible to other members.
+  if exists (select 1 from public.dashboard_widgets where id = '50000000-0000-4000-8000-000000000005') then
+    raise exception 'a plain member read widgets on another user''s private dashboard';
+  end if;
+
+  -- Delete: silently affects zero rows under RLS rather than raising.
+  delete from public.dashboard_widgets where id = '50000000-0000-4000-8000-000000000005';
+end $$;
+
+reset role;
+do $$
+begin
+  if not exists (select 1 from public.dashboard_widgets where id = '50000000-0000-4000-8000-000000000005') then
+    raise exception 'a plain member deleted a widget on another user''s private dashboard';
+  end if;
+end $$;
+
+-- Insert onto someone else's dashboard must be refused by the WITH CHECK.
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '30000000-0000-4000-8000-000000000003', true);
+do $$
+begin
+  begin
+    insert into public.dashboard_widgets (dashboard_id, widget_type)
+    values ('40000000-0000-4000-8000-000000000004', 'smuggled');
+    raise exception 'a plain member inserted a widget onto another user''s dashboard';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+
+-- The owner must still be able to manage their own dashboard's widgets,
+-- otherwise 0022 has simply broken the feature.
+reset role;
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000000001', true);
+do $$
+begin
+  if not exists (select 1 from public.dashboard_widgets where id = '50000000-0000-4000-8000-000000000005') then
+    raise exception '0022 over-restricted: the dashboard owner cannot read their own widget';
+  end if;
+  insert into public.dashboard_widgets (dashboard_id, widget_type)
+  values ('40000000-0000-4000-8000-000000000004', 'owner-added');
+  delete from public.dashboard_widgets where widget_type = 'owner-added';
+end $$;
+
+-- cleanup_expired_jobs is maintenance-only after 0022.
+do $$
+begin
+  begin
+    perform public.cleanup_expired_jobs();
+    raise exception 'cleanup_expired_jobs was callable by an authenticated user';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+
 -- Trusted worker requests use service_role deliberately and can observe the
 -- queued tenant record; ordinary authenticated requests above cannot.
 reset role;

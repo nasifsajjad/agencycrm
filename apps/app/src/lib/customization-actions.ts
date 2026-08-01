@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { db } from "@/lib/db"
-import { can, AuthorizationError } from "@/lib/auth"
+import { can, AuthorizationError, type WorkspaceContext } from "@/lib/auth"
 import type { Permission } from "@/lib/permissions"
 import { resolveWorkspace } from "@/lib/server"
 import { audit } from "@/lib/audit"
@@ -153,6 +153,28 @@ export async function deleteSavedViewAction(slug: string, id: string) {
 
 // ============ Dashboard widgets ============
 
+/**
+ * A dashboard's widgets are part of the dashboard, so editing them requires the
+ * same right as editing the dashboard itself: be its owner, or hold
+ * settings.manage. This mirrors the dashboards_update/dashboards_delete RLS
+ * policies. Returns the dashboard so callers do not re-fetch it.
+ *
+ * Previously neither widget action performed any check beyond resolving the
+ * workspace, and the widget RLS policies asked only for workspace membership,
+ * so any member could add to or delete from any other member's dashboard,
+ * including private ones.
+ */
+async function requireEditableDashboard(ctx: WorkspaceContext, dashboardId: string) {
+  const dashboard = await db.dashboard.findFirst({
+    where: { id: dashboardId, workspaceId: ctx.workspaceId },
+  })
+  if (!dashboard) throw new Error("Dashboard not found")
+  if (dashboard.ownerId !== ctx.userId && !can(ctx, "settings.manage")) {
+    throw new AuthorizationError("Missing permission: settings.manage")
+  }
+  return dashboard
+}
+
 export async function createDashboardWidgetAction(
   slug: string,
   dashboardId: string,
@@ -161,10 +183,7 @@ export async function createDashboardWidgetAction(
   const ctx = await resolveWorkspace(slug)
   const widgetType = String(formData.get("widgetType") ?? "").trim()
   if (!widgetType) throw new Error("Widget type required")
-  const dashboard = await db.dashboard.findFirst({
-    where: { id: dashboardId, workspaceId: ctx.workspaceId },
-  })
-  if (!dashboard) throw new Error("Dashboard not found")
+  await requireEditableDashboard(ctx, dashboardId)
   const widget = await db.dashboardWidget.create({
     data: {
       dashboardId,
@@ -187,7 +206,22 @@ export async function createDashboardWidgetAction(
 
 export async function deleteDashboardWidgetAction(slug: string, id: string) {
   const ctx = await resolveWorkspace(slug)
-  await db.dashboardWidget.deleteMany({ where: { id } })
+
+  // The previous implementation was `deleteMany({ where: { id } })` — an
+  // unscoped delete by browser-supplied id, with RLS as the only guard. Resolve
+  // the widget's dashboard and authorize against it before deleting.
+  const widget = await db.dashboardWidget.findFirst({ where: { id } })
+  if (!widget) return true
+  await requireEditableDashboard(ctx, widget.dashboardId)
+
+  const removed = await db.dashboardWidget.deleteMany({ where: { id } })
+  await audit({
+    ctx,
+    action: "dashboard_widget.deleted",
+    entityType: "dashboard_widget",
+    entityId: id,
+    before: { dashboardId: widget.dashboardId, widgetType: widget.widgetType },
+  })
   revalidatePath(`/w/${slug}`)
-  return true
+  return removed
 }
