@@ -10,49 +10,49 @@ const INTEGRATIONS = [
     name: "Stripe",
     description: "Accept payments and sync invoices.",
     category: "Payments",
-    status: "available",
+    status: "configuration required",
   },
   {
     name: "QuickBooks",
     description: "Sync invoices, expenses, and chart of accounts.",
     category: "Accounting",
-    status: "available",
+    status: "configuration required",
   },
   {
     name: "Google Calendar",
     description: "Two-way calendar sync for activities and meetings.",
     category: "Calendar",
-    status: "available",
+    status: "configuration required",
   },
   {
     name: "Slack",
     description: "Notifications and approvals routed to Slack channels.",
     category: "Communication",
-    status: "available",
+    status: "configuration required",
   },
   {
     name: "Meta Ads",
     description: "Pull paid social performance into client reports.",
     category: "Advertising",
-    status: "available",
+    status: "configuration required",
   },
   {
     name: "Google Ads",
     description: "Sync campaign performance and budgets.",
     category: "Advertising",
-    status: "available",
+    status: "configuration required",
   },
   {
     name: "Mailchimp",
     description: "Sync contacts and email campaign metrics.",
     category: "Email",
-    status: "available",
+    status: "configuration required",
   },
   {
     name: "HubSpot",
     description: "Two-way contact and deal sync.",
     category: "CRM",
-    status: "available",
+    status: "configuration required",
   },
 ]
 
@@ -69,7 +69,7 @@ export default async function IntegrationsPage({
     <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:px-8">
       <PageHeader
         title="Integrations"
-        description="Connect external providers (adapters; local mode requires no real credentials)"
+        description="Provider connections are enabled only after a configured OAuth adapter is deployed."
       />
       <div className="grid gap-6 lg:grid-cols-4">
         <aside className="lg:col-span-1">
@@ -78,9 +78,8 @@ export default async function IntegrationsPage({
         <div className="space-y-3 lg:col-span-3">
           <Card>
             <CardContent className="py-3 text-sm text-muted-foreground">
-              All integrations use a provider-neutral adapter pattern. Credentials are never
-              returned to the browser. Local mode substitutes deterministic mocks — no real provider
-              account is required to use core CRM features.
+              Credentials are never returned to the browser. This deployment has no provider OAuth
+              adapters configured, so connections are intentionally unavailable.
             </CardContent>
           </Card>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -96,13 +95,6 @@ export default async function IntegrationsPage({
                   </Badge>
                 </div>
                 <p className="mt-2 text-xs text-muted-foreground">{i.description}</p>
-                <a
-                  href={`/api/integrations/connect?provider=${encodeURIComponent(i.name)}&ws=${ctx.workspaceSlug}`}
-                  className="mt-3 inline-block text-xs text-brand hover:underline"
-                  title="Begin OAuth flow (requires provider credentials in production)"
-                >
-                  Connect →
-                </a>
               </Card>
             ))}
           </div>

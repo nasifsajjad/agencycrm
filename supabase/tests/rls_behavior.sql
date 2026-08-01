@@ -23,6 +23,8 @@ select public.create_workspace('Workspace B', 'workspace-b', 'USD', 'UTC');
 reset role;
 select set_config('app.workspace_a', id::text, true) from public.workspaces where slug = 'workspace-a';
 
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000000001', true);
 insert into public.contacts (workspace_id, first_name, last_name, owner_user_id)
 select id, 'Visible', 'Only To A', '10000000-0000-4000-8000-000000000001'
 from public.workspaces where slug = 'workspace-a';
@@ -31,6 +33,26 @@ do $$
 begin
   if (select count(*) from public.contacts) <> 1 then
     raise exception 'owner A must read its contact';
+  end if;
+end $$;
+
+reset role;
+insert into storage.objects (bucket_id, name, owner_id)
+values (
+  'workspace-assets',
+  current_setting('app.workspace_a') || '/rls-smoke.txt',
+  '10000000-0000-4000-8000-000000000001'
+);
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000000001', true);
+do $$
+begin
+  if not exists (
+    select 1 from storage.objects
+    where bucket_id = 'workspace-assets'
+      and name = current_setting('app.workspace_a') || '/rls-smoke.txt'
+  ) then
+    raise exception 'owner A could not read its Storage object';
   end if;
 end $$;
 
@@ -82,6 +104,13 @@ begin
   if exists (select 1 from public.contacts) then
     raise exception 'owner B read a cross-workspace contact';
   end if;
+  if exists (
+    select 1 from storage.objects
+    where bucket_id = 'workspace-assets'
+      and name = current_setting('app.workspace_a') || '/rls-smoke.txt'
+  ) then
+    raise exception 'owner B read a cross-workspace Storage object';
+  end if;
   if exists (select 1 from public.workspaces where slug = 'workspace-a') then
     raise exception 'owner B read workspace A';
   end if;
@@ -97,6 +126,17 @@ begin
     raise exception 'cross-workspace INSERT unexpectedly succeeded';
   exception when insufficient_privilege then null;
   end;
+end $$;
+
+-- Trusted worker requests use service_role deliberately and can observe the
+-- queued tenant record; ordinary authenticated requests above cannot.
+reset role;
+set local role service_role;
+do $$
+begin
+  if not exists (select 1 from public.contacts where workspace_id = current_setting('app.workspace_a')::uuid) then
+    raise exception 'service role could not read the tenant record';
+  end if;
 end $$;
 
 reset role;

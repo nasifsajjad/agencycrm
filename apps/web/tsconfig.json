@@ -21,7 +21,7 @@
     ],
     "paths": {
       "@/*": [
-        "../../src/*"
+        "./src/*"
       ]
     },
     "allowJs": true,
@@ -33,8 +33,8 @@
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
-    "../../src/**/*.ts",
-    "../../src/**/*.tsx",
+    "src/**/*.ts",
+    "src/**/*.tsx",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],

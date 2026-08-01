@@ -1,35 +1,36 @@
+import { execFileSync } from "node:child_process"
 import { describe, expect, it } from "vitest"
-import { readFileSync } from "node:fs"
-import { join } from "node:path"
 
-const migrationSql = readFileSync(join(__dirname, "../../supabase/migrations/0007_rls_policies.sql"), "utf8")
-const helperSql = readFileSync(join(__dirname, "../../supabase/migrations/0006_authorization_helpers.sql"), "utf8")
-const relationshipSql = ["0003_crm.sql", "0004_clients_delivery_collaboration.sql"].map((file) => readFileSync(join(__dirname, "../../supabase/migrations", file), "utf8")).join("\n")
+const container = process.env.SUPABASE_DB_CONTAINER ?? "supabase_db_agencyos-local"
 
-describe("database-enforced tenant isolation", () => {
-  it("derives membership from auth.uid rather than request data", () => {
-    expect(helperSql).toContain("auth.uid()")
-    expect(helperSql).toMatch(/is_workspace_member[\s\S]*workspace_memberships[\s\S]*user_id = auth\.uid\(\)/)
-  })
-
-  it("requires workspace permission in every CRM write policy", () => {
-    for (const table of ["contacts", "companies", "leads", "deals", "clients", "projects", "tasks"]) {
-      expect(migrationSql).toContain(`public.${table}`)
-      expect(migrationSql).toMatch(new RegExp(`create policy [^;]+ on public\\.${table} for insert[\\s\\S]*with check`))
-    }
-  })
-
-  it("relationship triggers reject guessed cross-workspace foreign keys", () => {
-    for (const trigger of ["tg_contacts_same_workspace", "tg_deals_same_workspace", "tg_clients_same_workspace", "tg_projects_same_workspace", "tg_tasks_same_workspace"]) {
-      expect(relationshipSql).toContain(trigger)
-    }
-    expect(relationshipSql).toContain("Cross-workspace company reference forbidden")
-    expect(relationshipSql).toContain("Cross-workspace project reference forbidden")
-  })
-
-  it("portal access is client-explicit", () => {
-    expect(helperSql).toContain("can_access_client")
-    expect(migrationSql).toMatch(/client_portals[\s\S]*client_id/)
-    expect(migrationSql).toContain("private.can_access_client(client_id)")
+describe("public inquiry RLS behavior", () => {
+  it("allows anonymous submission but not reading, while service role can process submissions", () => {
+    const sql = `
+      begin;
+      set local role anon;
+      insert into public.marketing_inquiries (kind, first_name, last_name, email, agency, message)
+      values ('contact', 'Anon', 'Sender', 'anon-sender@example.test', 'Test Agency', 'Need a demo');
+      do $$ begin
+        begin
+          perform 1 from public.marketing_inquiries;
+          raise exception 'anon read unexpectedly succeeded';
+        exception when insufficient_privilege then null;
+        end;
+      end $$;
+      reset role;
+      set local role service_role;
+      do $$ begin
+        if not exists (select 1 from public.marketing_inquiries where email = 'anon-sender@example.test') then
+          raise exception 'service role could not read submitted inquiry';
+        end if;
+      end $$;
+      rollback;
+    `
+    const output = execFileSync(
+      "docker",
+      ["exec", "-i", container, "psql", "-U", "postgres", "-d", "postgres", "-v", "ON_ERROR_STOP=1"],
+      { encoding: "utf8", input: sql, stdio: ["pipe", "pipe", "pipe"] }
+    )
+    expect(output).toContain("ROLLBACK")
   })
 })

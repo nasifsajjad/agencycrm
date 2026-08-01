@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server"
-import { db } from "@/lib/db"
+import { createServerClient } from "@/lib/supabase/server"
 
 export async function GET() {
   const startedAt = Date.now()
   try {
-    // Probe the database with a trivial query
-    await db.$queryRaw`SELECT 1`
+    const supabase = await createServerClient()
+    if (!supabase) throw new Error("Supabase is not configured")
+    const { error } = await supabase.from("workspaces").select("id", { head: true, count: "exact" }).limit(1)
+    if (error) throw error
     return NextResponse.json({
       status: "ok",
       time: new Date().toISOString(),

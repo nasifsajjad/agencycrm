@@ -1,36 +1,65 @@
 # AgencyOS — Current State
 
-Updated 2026-08-01 after the Supabase request-path implementation and local live verification.
+Updated 2026-08-01 by an independent production-readiness verification. This
+document records observed results; it is not a release approval.
 
-## Implemented
+## Verdict: NOT READY
 
-- Authenticated requests now use request-scoped `@supabase/ssr` Auth cookies and profile rows. Custom JWT sessions, bcrypt password verification, and the local session adapter are no longer in the application request path.
-- Tenant reads and writes use the Supabase PostgREST adapter in `src/lib/db.ts`; query results are translated to the existing domain shape, relation hydration is RLS-scoped, and no Prisma dependency remains in the app packages.
-- Workspace creation uses the atomic `public.create_workspace` RPC. Invitation acceptance uses `public.accept_invitation`; invitation preview uses a SHA-256 token lookup RPC without exposing token hashes.
-- Audit writes use the append-only `public.record_audit` wrapper and `private.record_audit`; direct authenticated inserts remain denied.
-- Binary uploads, downloads, signed URLs, and deletes use Supabase Storage with `storage.objects` RLS plus the tenant metadata row in `public.files`.
-- `apps/web` is a deployable marketing Next app and `apps/app` is a deployable authenticated CRM/portal Next app. Their route adapters cover the complete root marketing, auth, workspace, portal, API, exports, imports, notifications, and file route surface.
-- Authorization tests now exercise permission behavior, tenant/RLS policy coverage, portal explicit-client rules, safe redirects, CSV permission gates, and migration relationship guards.
+The repository is not ready for production. A deployable Supabase production
+environment, its credentials, and a complete end-to-end verification are all
+absent. More importantly, the application test suite does not cover the
+critical behaviours it claims to cover.
 
-## Verification
+## Verified locally
 
-All of the following pass with the pinned Node 24 runtime:
+- The request-path code in `apps/app` uses `@supabase/ssr`, PostgREST, and
+  Supabase Storage; it does not import Prisma, SQLite, bcrypt, or a custom JWT
+  implementation.
+- The local Docker Supabase Postgres instance was exercised with its actual
+  `authenticated`, `anon`, and `service_role` database roles and
+  `request.jwt.claim.sub` claims. The behavioral SQL test passed for workspace
+  read/insert isolation, client-portal isolation, Storage object isolation,
+  anonymous inquiry privacy, and the intentional service-role bypass.
+- Root and `apps/app` TypeScript checks and repository ESLint pass under Node 24. The web app produced a standalone Next production artifact.
+- Verification repairs added in this pass: immutable workspace owner/ID are
+  enforced by a Postgres trigger; user mutations can enqueue RLS-scoped outbox
+  events; the worker uses a service-role client and fails closed when it is not
+  configured; notification count is implemented in the adapter; and portal
+  request mutations no longer trust browser-supplied workspace or client IDs.
 
-```text
-TypeScript: root tsconfig and apps/app tsconfig
-ESLint: repository source tree
-Vitest: 7 files, 51 tests
-Next production build: root app
-Next production build: apps/web
-Next production build: apps/app
-Supabase migrations 0001–0012: clean local Docker Postgres 17.4
-supabase/tests/rls_behavior.sql: pass, including cross-workspace and portal isolation cases
-```
+## Blocking findings
 
-The local Supabase database used for verification is the named Docker container `supabase_db_agencyos-local`. It was reset locally before replaying the migrations. Production was not contacted or modified.
+- `.env` contains only a legacy `DATABASE_URL`. There is no configured
+  Supabase URL, publishable key, service-role key, CRON secret, email provider,
+  webhook secret, or production project to verify. No remote environment was
+  contacted or deployed.
+- `apps/web` links to `/sign-in` and `/sign-up`, but it does not own those
+  routes; it has no configured application origin/rewrite to `apps/app`.
+  Independently deployed marketing calls-to-action therefore 404.
+- The automated tests do not execute authentication, invitation acceptance,
+  portal authorization as a real client identity, exports, reports, custom
+  fields, notifications, automation execution, or complete critical user
+  workflows. The Playwright configuration starts the obsolete root app with
+  Bun (which is not installed in this environment), not the two deployable
+  apps.
+- The database adapter deliberately emulates an ORM but lacks real
+  transactional semantics and ignores several relation predicates. This can
+  make feature queries incorrect even when RLS prevents cross-tenant exposure.
+- Email and webhook automation actions intentionally throw because delivery
+  adapters are not implemented/configured. Condition trees are not evaluated.
+- Legacy Prisma/SQLite/custom-JWT artifacts remain in the repository and
+  historical documentation. They are not on the `apps/app` request path, but
+  their presence makes the root application and test suite misleading.
 
-## Remaining external prerequisite
+## Required before re-verification
 
-The repository `.env` intentionally has no Supabase URL/key. A human deployment operator must provide the target Supabase project URL, publishable key, and service-role key through the deployment secret manager, run `supabase db push` against that non-production project, and configure the two Vercel projects. No deployment or production change was made here.
-
-The legacy `prisma/schema.prisma` and historical ADR/worklog references remain as migration history/documentation only; they are not used by the application packages or request path.
+1. Complete the split deployment contract: configure a required app origin for
+   `apps/web`, and run separate production builds and smoke tests for both
+   apps.
+2. Provision a non-production Supabase project with Auth, Postgres migrations,
+   Storage buckets/policies, service role, cron secret, and delivery adapters.
+3. Replace the root-app Playwright smoke tests with authenticated E2E coverage
+   against `apps/web` and `apps/app`, including invitations, portal identities,
+   Storage, exports, notifications, reports, custom fields, and automation.
+4. Resolve the adapter’s missing transaction and relation-filter semantics,
+   then run the complete suite against the non-production Supabase project.

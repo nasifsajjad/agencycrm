@@ -28,13 +28,7 @@ export default async function PortalRequestsPage({
       <PageHeader
         title="Requests"
         description="Send new requests to your account team"
-        action={
-          <NewRequestButton
-            workspaceSlug={portal.workspace.slug}
-            clientId={portal.clientId}
-            portalSlug={portalSlug}
-          />
-        }
+        action={<NewRequestButton portalSlug={portalSlug} />}
       />
       {requests.length === 0 ? (
         <EmptyState title="No requests yet" description="Submit a request to your account team." />

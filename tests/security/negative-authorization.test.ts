@@ -36,14 +36,6 @@ describe("server authorization behavior", () => {
     expect(can(ctx, "clients.update")).toBe(false)
   })
 
-  it("suspended or removed memberships cannot become a context", () => {
-    // getWorkspaceContext queries status = active server-side. This contract
-    // assertion protects the exact predicate from being weakened.
-    expect("status").toBe("status")
-    expect("active").not.toBe("suspended")
-    expect("active").not.toBe("removed")
-  })
-
   it("owner is the only implicit all-permission role", () => {
     expect(can(context(["Owner"]), "workspace.delete")).toBe(true)
     expect(can(context(["Administrator"], ROLE_PERMISSIONS.Administrator), "workspace.delete")).toBe(false)
