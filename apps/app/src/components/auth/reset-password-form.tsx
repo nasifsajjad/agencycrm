@@ -21,7 +21,12 @@ export function ResetPasswordForm() {
           const result = await resetPasswordAction(new FormData(event.currentTarget))
           if (result?.error) setError(result.error)
         } catch (caught) {
-          if (!(caught && typeof caught === "object" && "digest" in caught && String(caught.digest).startsWith("NEXT_REDIRECT"))) {
+          if (!(
+            caught &&
+            typeof caught === "object" &&
+            "digest" in caught &&
+            String(caught.digest).startsWith("NEXT_REDIRECT")
+          )) {
             setError("Unable to reset password. Request a new link and try again.")
           }
         } finally {
@@ -31,10 +36,23 @@ export function ResetPasswordForm() {
     >
       <div className="space-y-1.5">
         <Label htmlFor="password">New password</Label>
-        <Input id="password" name="password" type="password" minLength={8} required autoComplete="new-password" />
+        <Input
+          id="password"
+          name="password"
+          type="password"
+          minLength={8}
+          required
+          autoComplete="new-password"
+        />
       </div>
-      {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
-      <Button className="w-full" disabled={pending}>{pending ? "Saving…" : "Save new password"}</Button>
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+      <Button className="w-full" disabled={pending}>
+        {pending ? "Saving…" : "Save new password"}
+      </Button>
     </form>
   )
 }

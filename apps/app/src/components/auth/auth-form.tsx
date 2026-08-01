@@ -83,7 +83,8 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
       } else {
         const res = await signUpAction(formData)
         if (res?.error) setError(res.error)
-        else if (res?.needsEmailConfirmation) setMessage("Check your email to confirm your account before signing in.")
+        else if (res?.needsEmailConfirmation)
+          setMessage("Check your email to confirm your account before signing in.")
       }
     } catch (e: any) {
       // Next redirect throws — swallow
@@ -140,8 +141,18 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
-      {message && <Alert><AlertDescription>{message}</AlertDescription></Alert>}
-      {mode === "sign-in" && <p className="text-right text-xs"><Link href="/forgot-password" className="underline underline-offset-4">Forgot password?</Link></p>}
+      {message && (
+        <Alert>
+          <AlertDescription>{message}</AlertDescription>
+        </Alert>
+      )}
+      {mode === "sign-in" && (
+        <p className="text-right text-xs">
+          <Link href="/forgot-password" className="underline underline-offset-4">
+            Forgot password?
+          </Link>
+        </p>
+      )}
       <Button type="submit" className="w-full" disabled={pending}>
         {pending ? "Please wait…" : mode === "sign-in" ? "Sign in" : "Create account"}
       </Button>

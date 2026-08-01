@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest"
-import {
-  applicationUrl,
-  getApplicationOrigin,
-  safeRedirectPath,
-} from "../../packages/config/src"
+import { applicationUrl, getApplicationOrigin, safeRedirectPath } from "../../packages/config/src"
 
 describe("split deployment URL configuration", () => {
   it("uses the safe localhost app origin by default", () => {
@@ -12,7 +8,7 @@ describe("split deployment URL configuration", () => {
 
   it("normalizes a valid configured origin", () => {
     expect(getApplicationOrigin(" https://app.agencyos.example/ ")).toBe(
-      "https://app.agencyos.example",
+      "https://app.agencyos.example"
     )
     expect(applicationUrl("/sign-in")).toBe("http://localhost:3001/sign-in")
   })
@@ -32,7 +28,7 @@ describe("split deployment URL configuration", () => {
 
   it("generates authenticated-app URLs from the configured origin", () => {
     expect(applicationUrl("/sign-in?next=/w/northstar", "https://app.agencyos.example")).toBe(
-      "https://app.agencyos.example/sign-in?next=/w/northstar",
+      "https://app.agencyos.example/sign-in?next=/w/northstar"
     )
     expect(applicationUrl("/onboarding")).toBe("http://localhost:3001/onboarding")
   })

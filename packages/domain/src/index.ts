@@ -10,7 +10,7 @@ export type AutomationEvent = {
 type JsonRecord = Record<string, unknown>
 
 function record(value: unknown): JsonRecord {
-  return value && typeof value === "object" && !Array.isArray(value) ? value as JsonRecord : {}
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as JsonRecord) : {}
 }
 
 function pathValue(input: JsonRecord, path: string): unknown {
@@ -38,19 +38,67 @@ export function evaluateConditionTree(tree: unknown, event: AutomationEvent): bo
   const actualComparable = comparable(actual)
   const expectedComparable = comparable(expected)
   switch (operator) {
-    case "exists": return actual !== null && actual !== undefined
-    case "not_exists": return actual === null || actual === undefined
-    case "equals": return actual === expected
-    case "not_equals": return actual !== expected
-    case "in": return Array.isArray(expected) && expected.includes(actual)
-    case "not_in": return Array.isArray(expected) && !expected.includes(actual)
-    case "contains": return actual !== null && actual !== undefined && String(actual).toLowerCase().includes(String(expected ?? "").toLowerCase())
-    case "starts_with": return actual !== null && actual !== undefined && String(actual).toLowerCase().startsWith(String(expected ?? "").toLowerCase())
-    case "ends_with": return actual !== null && actual !== undefined && String(actual).toLowerCase().endsWith(String(expected ?? "").toLowerCase())
-    case "lt": return actualComparable !== null && expectedComparable !== null && actualComparable < expectedComparable
-    case "lte": return actualComparable !== null && expectedComparable !== null && actualComparable <= expectedComparable
-    case "gt": return actualComparable !== null && expectedComparable !== null && actualComparable > expectedComparable
-    case "gte": return actualComparable !== null && expectedComparable !== null && actualComparable >= expectedComparable
-    default: throw new Error(`Unsupported automation condition operator: ${operator}`)
+    case "exists":
+      return actual !== null && actual !== undefined
+    case "not_exists":
+      return actual === null || actual === undefined
+    case "equals":
+      return actual === expected
+    case "not_equals":
+      return actual !== expected
+    case "in":
+      return Array.isArray(expected) && expected.includes(actual)
+    case "not_in":
+      return Array.isArray(expected) && !expected.includes(actual)
+    case "contains":
+      return (
+        actual !== null &&
+        actual !== undefined &&
+        String(actual)
+          .toLowerCase()
+          .includes(String(expected ?? "").toLowerCase())
+      )
+    case "starts_with":
+      return (
+        actual !== null &&
+        actual !== undefined &&
+        String(actual)
+          .toLowerCase()
+          .startsWith(String(expected ?? "").toLowerCase())
+      )
+    case "ends_with":
+      return (
+        actual !== null &&
+        actual !== undefined &&
+        String(actual)
+          .toLowerCase()
+          .endsWith(String(expected ?? "").toLowerCase())
+      )
+    case "lt":
+      return (
+        actualComparable !== null &&
+        expectedComparable !== null &&
+        actualComparable < expectedComparable
+      )
+    case "lte":
+      return (
+        actualComparable !== null &&
+        expectedComparable !== null &&
+        actualComparable <= expectedComparable
+      )
+    case "gt":
+      return (
+        actualComparable !== null &&
+        expectedComparable !== null &&
+        actualComparable > expectedComparable
+      )
+    case "gte":
+      return (
+        actualComparable !== null &&
+        expectedComparable !== null &&
+        actualComparable >= expectedComparable
+      )
+    default:
+      throw new Error(`Unsupported automation condition operator: ${operator}`)
   }
 }

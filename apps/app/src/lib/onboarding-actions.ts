@@ -21,7 +21,11 @@ export async function createWorkspaceAction(input: {
     return { error: "Slug must be 2-40 lowercase letters, digits, or hyphens." }
   const supabase = await createServerClient()
   if (!supabase) return { error: "Supabase is not configured." }
-  const { data: existing } = await supabase.from("workspaces").select("id").eq("slug", input.slug).maybeSingle()
+  const { data: existing } = await supabase
+    .from("workspaces")
+    .select("id")
+    .eq("slug", input.slug)
+    .maybeSingle()
   if (existing) return { error: "That slug is taken. Try another." }
 
   const { data: workspaceId, error } = await supabase.rpc("create_workspace", {
@@ -47,7 +51,11 @@ export async function loadDemoDataAction(input: {
     return { error: "Slug must be 2-40 lowercase letters, digits, or hyphens." }
   const supabase = await createServerClient()
   if (!supabase) return { error: "Supabase is not configured." }
-  const { data: existing } = await supabase.from("workspaces").select("id").eq("slug", input.slug).maybeSingle()
+  const { data: existing } = await supabase
+    .from("workspaces")
+    .select("id")
+    .eq("slug", input.slug)
+    .maybeSingle()
   if (existing) return { error: "That slug is taken. Try another." }
 
   const { data: workspaceId, error } = await supabase.rpc("create_workspace", {

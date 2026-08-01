@@ -46,7 +46,9 @@ type AutomationAction = { id: string; actionType: string; configJson?: unknown }
 const MAX_OUTBOX_ATTEMPTS = 5
 
 function record(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {}
 }
 
 /**
@@ -70,7 +72,9 @@ export async function emitEvent(payload: OutboxEventPayload) {
 export async function processOutbox(batchSize = 50) {
   if (!createServiceClient()) throw new Error("SUPABASE_SERVICE_ROLE_KEY is not configured")
 
-  const claimed = await serviceRpc<Record<string, unknown>[]>("claim_outbox_events", { p_limit: batchSize })
+  const claimed = await serviceRpc<Record<string, unknown>[]>("claim_outbox_events", {
+    p_limit: batchSize,
+  })
   const events: OutboxRow[] = claimed.map((row) => ({
     id: String(row.id),
     workspaceId: String(row.workspace_id),
@@ -116,21 +120,48 @@ export async function processOutbox(batchSize = 50) {
         const existing = await serviceDb.automationRun.findFirst({ where: { idempotencyKey } })
         if (existing?.status === "succeeded") continue
 
-        const run = existing ?? await serviceDb.automationRun.create({
-          data: { automationId: auto.id, triggerEventId: event.id, status: "running", idempotencyKey },
-        })
-        if (existing) await serviceDb.automationRun.update({ where: { id: run.id }, data: { status: "running", errorSummary: null, completedAt: null } })
+        const run =
+          existing ??
+          (await serviceDb.automationRun.create({
+            data: {
+              automationId: auto.id,
+              triggerEventId: event.id,
+              status: "running",
+              idempotencyKey,
+            },
+          }))
+        if (existing)
+          await serviceDb.automationRun.update({
+            where: { id: run.id },
+            data: { status: "running", errorSummary: null, completedAt: null },
+          })
 
         try {
           for (const action of auto.actions) {
-            const prior = await serviceDb.automationActionRun.findFirst({ where: { runId: run.id, actionId: action.id } })
+            const prior = await serviceDb.automationActionRun.findFirst({
+              where: { runId: run.id, actionId: action.id },
+            })
             if (prior?.status === "succeeded") continue
-            const actionRun = prior ?? await serviceDb.automationActionRun.create({ data: { runId: run.id, actionId: action.id, status: "pending", attempts: 0 } })
+            const actionRun =
+              prior ??
+              (await serviceDb.automationActionRun.create({
+                data: { runId: run.id, actionId: action.id, status: "pending", attempts: 0 },
+              }))
             try {
               await executeAction(event, action)
-              await serviceDb.automationActionRun.update({ where: { id: actionRun.id }, data: { status: "succeeded", attempts: actionRun.attempts + 1, errorSummary: null } })
+              await serviceDb.automationActionRun.update({
+                where: { id: actionRun.id },
+                data: { status: "succeeded", attempts: actionRun.attempts + 1, errorSummary: null },
+              })
             } catch (error) {
-              await serviceDb.automationActionRun.update({ where: { id: actionRun.id }, data: { status: "failed", attempts: actionRun.attempts + 1, errorSummary: error instanceof Error ? error.message : "Automation action failed" } })
+              await serviceDb.automationActionRun.update({
+                where: { id: actionRun.id },
+                data: {
+                  status: "failed",
+                  attempts: actionRun.attempts + 1,
+                  errorSummary: error instanceof Error ? error.message : "Automation action failed",
+                },
+              })
               throw error
             }
           }
@@ -145,7 +176,11 @@ export async function processOutbox(batchSize = 50) {
             where: { id: run.id },
             // attempts is incremented by claim_outbox_events, so it is already
             // the current attempt number rather than the previous one.
-            data: { status: event.attempts >= MAX_OUTBOX_ATTEMPTS ? "dead_letter" : "failed", completedAt: new Date(), errorSummary: message },
+            data: {
+              status: event.attempts >= MAX_OUTBOX_ATTEMPTS ? "dead_letter" : "failed",
+              completedAt: new Date(),
+              errorSummary: message,
+            },
           })
           failed += 1
         }
@@ -258,7 +293,17 @@ async function executeAction(event: OutboxRow, action: AutomationAction) {
       const url = String(config.url ?? "")
       const secret = String(config.secret ?? process.env.WEBHOOK_SIGNING_SECRET ?? "")
       if (!secret) throw new Error("Webhook signing secret is not configured")
-      await sendWebhook(url, { eventType: event.eventType, entityType: event.entityType, entityId: event.entityId, workspaceId: event.workspaceId, payload: event.payload ?? {} }, secret)
+      await sendWebhook(
+        url,
+        {
+          eventType: event.eventType,
+          entityType: event.entityType,
+          entityId: event.entityId,
+          workspaceId: event.workspaceId,
+          payload: event.payload ?? {},
+        },
+        secret
+      )
       break
     }
     default:

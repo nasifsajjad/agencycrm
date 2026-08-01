@@ -50,7 +50,7 @@ them or remove them — do not assume they hold logic.
    `security definer` function — see `convert_deal_to_client`, `decide_approval`, `accept_invitation`.
 4. **Every `security definer` function must `set search_path` and re-check authorization
    internally.** Do not rely on the caller having checked. Do not grant `execute on all functions
-   in schema private` — grant per function, to the narrowest role.
+in schema private` — grant per function, to the narrowest role.
 5. **Audit events are append-only.** Use `public.record_audit`, never `private.record_audit` —
    the public wrapper is the one that verifies membership.
 6. **Money is integer minor units.** No floating-point arithmetic on monetary values.

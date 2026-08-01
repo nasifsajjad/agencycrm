@@ -6,7 +6,10 @@ export async function GET() {
   try {
     const supabase = await createServerClient()
     if (!supabase) throw new Error("Supabase is not configured")
-    const { error } = await supabase.from("workspaces").select("id", { head: true, count: "exact" }).limit(1)
+    const { error } = await supabase
+      .from("workspaces")
+      .select("id", { head: true, count: "exact" })
+      .limit(1)
     if (error) throw error
     return NextResponse.json({
       status: "ok",

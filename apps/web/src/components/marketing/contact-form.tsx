@@ -67,7 +67,9 @@ export function ContactForm() {
       <Button type="submit" disabled={pending}>
         {pending ? "Sending…" : "Send message"}
       </Button>
-      <p className="text-xs text-muted-foreground">Your message is securely submitted to AgencyOS.</p>
+      <p className="text-xs text-muted-foreground">
+        Your message is securely submitted to AgencyOS.
+      </p>
     </form>
   )
 }

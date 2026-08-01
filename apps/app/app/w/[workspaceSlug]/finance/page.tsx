@@ -41,12 +41,18 @@ export default async function FinancePage({
     }),
   ])
 
-  const totalInvoiced: bigint = invoices.reduce((s: bigint, i: any) => s + asMinor(i.totalMinor), 0n)
+  const totalInvoiced: bigint = invoices.reduce(
+    (s: bigint, i: any) => s + asMinor(i.totalMinor),
+    0n
+  )
   const totalPaid: bigint = invoices.reduce((s: bigint, i: any) => s + asMinor(i.paidMinor), 0n)
   const outstanding: bigint = invoices
     .filter((i) => i.status === "sent")
     .reduce((s: bigint, i: any) => s + (asMinor(i.totalMinor) - asMinor(i.paidMinor)), 0n)
-  const totalExpenses: bigint = expenses.reduce((s: bigint, e: any) => s + asMinor(e.amountMinor), 0n)
+  const totalExpenses: bigint = expenses.reduce(
+    (s: bigint, e: any) => s + asMinor(e.amountMinor),
+    0n
+  )
   const recognizedRevenue: bigint = timeEntries.reduce(
     (s: bigint, t: any) => s + (asMinor(t.rateMinor) * BigInt(t.minutes)) / 60n,
     0n

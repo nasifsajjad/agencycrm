@@ -34,19 +34,29 @@ export async function decidePortalApprovalAction(
   portalSlug: string,
   approvalId: string,
   decision: "approved" | "changes_requested",
-  note: string,
+  note: string
 ) {
   const user = await getCurrentUser()
   if (!user) return { error: "Sign in is required." }
   const portal = await db.clientPortal.findUnique({ where: { slug: portalSlug } })
   if (!portal) return { error: "Portal not found." }
   const approval = await db.approvalRequest.findFirst({
-    where: { id: approvalId, workspaceId: portal.workspaceId, status: "pending", entityType: "deliverable" },
+    where: {
+      id: approvalId,
+      workspaceId: portal.workspaceId,
+      status: "pending",
+      entityType: "deliverable",
+    },
     include: { steps: true },
   })
   if (!approval) return { error: "Approval not found or no longer pending." }
   const deliverable = await db.deliverable.findFirst({
-    where: { id: approval.entityId, workspaceId: portal.workspaceId, clientId: portal.clientId, visibility: "client" },
+    where: {
+      id: approval.entityId,
+      workspaceId: portal.workspaceId,
+      clientId: portal.clientId,
+      visibility: "client",
+    },
   })
   if (!deliverable) return { error: "Approval is not shared with this client." }
   const step = approval.steps.find((candidate) => candidate.status === "pending")

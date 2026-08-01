@@ -38,7 +38,9 @@ describe("server authorization behavior", () => {
 
   it("owner is the only implicit all-permission role", () => {
     expect(can(context(["Owner"]), "workspace.delete")).toBe(true)
-    expect(can(context(["Administrator"], ROLE_PERMISSIONS.Administrator), "workspace.delete")).toBe(false)
+    expect(
+      can(context(["Administrator"], ROLE_PERMISSIONS.Administrator), "workspace.delete")
+    ).toBe(false)
   })
 
   it("safe redirect rejects external and protocol-relative targets", () => {

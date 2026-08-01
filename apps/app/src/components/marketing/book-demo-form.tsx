@@ -71,7 +71,9 @@ export function BookDemoForm() {
       <Button type="submit" disabled={pending} className="w-full">
         <Calendar className="mr-1 h-4 w-4" /> {pending ? "Submitting…" : "Request demo"}
       </Button>
-      <p className="text-xs text-muted-foreground">We’ll follow up to schedule a tailored walkthrough.</p>
+      <p className="text-xs text-muted-foreground">
+        We’ll follow up to schedule a tailored walkthrough.
+      </p>
     </form>
   )
 }

@@ -119,7 +119,13 @@ export async function resetPasswordAction(formData: FormData) {
 }
 
 async function uniqueSlug(name: string) {
-  const base = name.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "workspace"
+  const base =
+    name
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 40) || "workspace"
   const supabase = await createServerClient()
   if (!supabase) return base
   let slug = base

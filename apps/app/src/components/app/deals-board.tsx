@@ -188,7 +188,10 @@ function DraggableDealCard({
       {deal.isWon && !deal.converted && (
         <button
           type="button"
-          onClick={(event) => { event.stopPropagation(); onConvert() }}
+          onClick={(event) => {
+            event.stopPropagation()
+            onConvert()
+          }}
           className="mt-2 w-full rounded border border-emerald-300 px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50"
         >
           Convert to client

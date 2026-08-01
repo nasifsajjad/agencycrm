@@ -62,7 +62,10 @@ export default async function ReportsPage({
   const openDeals = deals.filter((d) => !d.stage?.isClosed)
   const wonDeals = deals.filter((d) => d.stage?.isWon)
   const closedDeals = deals.filter((d) => d.stage?.isClosed)
-  const pipelineValue: bigint = openDeals.reduce((s: bigint, d: any) => s + asMinor(d.amountMinor), 0n)
+  const pipelineValue: bigint = openDeals.reduce(
+    (s: bigint, d: any) => s + asMinor(d.amountMinor),
+    0n
+  )
   const weightedPipeline: bigint = openDeals.reduce(
     (s: bigint, d: any) => s + (asMinor(d.amountMinor) * BigInt(d.probability)) / 100n,
     0n
@@ -86,8 +89,14 @@ export default async function ReportsPage({
             (1000 * 60 * 60 * 24)
         )
       : 0
-  const totalInvoiced: bigint = invoices.reduce((s: bigint, i: any) => s + asMinor(i.totalMinor), 0n)
-  const totalCollected: bigint = invoices.reduce((s: bigint, i: any) => s + asMinor(i.paidMinor), 0n)
+  const totalInvoiced: bigint = invoices.reduce(
+    (s: bigint, i: any) => s + asMinor(i.totalMinor),
+    0n
+  )
+  const totalCollected: bigint = invoices.reduce(
+    (s: bigint, i: any) => s + asMinor(i.paidMinor),
+    0n
+  )
 
   // Pipeline by stage
   const stages = new Map<

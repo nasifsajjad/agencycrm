@@ -79,27 +79,29 @@ export async function uploadFile(input: UploadInput): Promise<UploadResult> {
 
   const supabase = await createServerClient()
   if (!supabase) throw new Error("Supabase is not configured")
-  const { error: uploadError } = await supabase.storage.from(bucket).upload(objectPath, input.body, {
-    contentType: input.contentType,
-    upsert: false,
-  })
+  const { error: uploadError } = await supabase.storage
+    .from(bucket)
+    .upload(objectPath, input.body, {
+      contentType: input.contentType,
+      upsert: false,
+    })
   if (uploadError) throw uploadError
 
   let file
   try {
     file = await db.fileRecord.create({
-    data: {
-      workspaceId,
-      bucket,
-      objectPath,
-      originalName: input.originalName,
-      contentType: input.contentType,
-      sizeBytes: BigInt(input.sizeBytes),
-      checksum,
-      uploaderId: input.ctx.userId,
-      visibility: input.visibility ?? "internal",
-      scanStatus: "clean",
-    },
+      data: {
+        workspaceId,
+        bucket,
+        objectPath,
+        originalName: input.originalName,
+        contentType: input.contentType,
+        sizeBytes: BigInt(input.sizeBytes),
+        checksum,
+        uploaderId: input.ctx.userId,
+        visibility: input.visibility ?? "internal",
+        scanStatus: "clean",
+      },
     })
   } catch (error) {
     await supabase.storage.from(bucket).remove([objectPath])
@@ -140,7 +142,12 @@ export async function readFile(
   if (!supabase) return null
   const { data: blob, error } = await supabase.storage.from(file.bucket).download(file.objectPath)
   if (error || !blob) return null
-  return { body: Buffer.from(await blob.arrayBuffer()), contentType: file.contentType ?? "application/octet-stream", size: Number(file.sizeBytes), originalName: file.originalName }
+  return {
+    body: Buffer.from(await blob.arrayBuffer()),
+    contentType: file.contentType ?? "application/octet-stream",
+    size: Number(file.sizeBytes),
+    originalName: file.originalName,
+  }
 }
 
 /**
@@ -160,7 +167,9 @@ export async function createSignedDownloadUrl(
   if (!file) return null
   const supabase = await createServerClient()
   if (!supabase) return null
-  const { data, error } = await supabase.storage.from(file.bucket).createSignedUrl(file.objectPath, expiresInSec)
+  const { data, error } = await supabase.storage
+    .from(file.bucket)
+    .createSignedUrl(file.objectPath, expiresInSec)
   if (error) return null
   return data.signedUrl
 }

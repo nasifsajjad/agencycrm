@@ -67,10 +67,7 @@ export default async function PortalApprovalsPage({
               </div>
               {a.status === "pending" && (
                 <div className="mt-4 border-t border-border/40 pt-3">
-                  <PortalApprovalDecision
-                    approvalId={a.id}
-                    portalSlug={portalSlug}
-                  />
+                  <PortalApprovalDecision approvalId={a.id} portalSlug={portalSlug} />
                 </div>
               )}
             </Card>

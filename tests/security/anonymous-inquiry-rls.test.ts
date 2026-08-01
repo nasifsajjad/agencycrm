@@ -28,7 +28,18 @@ describe("public inquiry RLS behavior", () => {
     `
     const output = execFileSync(
       "docker",
-      ["exec", "-i", container, "psql", "-U", "postgres", "-d", "postgres", "-v", "ON_ERROR_STOP=1"],
+      [
+        "exec",
+        "-i",
+        container,
+        "psql",
+        "-U",
+        "postgres",
+        "-d",
+        "postgres",
+        "-v",
+        "ON_ERROR_STOP=1",
+      ],
       { encoding: "utf8", input: sql, stdio: ["pipe", "pipe", "pipe"] }
     )
     expect(output).toContain("ROLLBACK")

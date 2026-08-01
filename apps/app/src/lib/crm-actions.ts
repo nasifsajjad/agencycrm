@@ -292,7 +292,10 @@ export async function moveDealAction(slug: string, dealId: string, stageId: stri
 export async function convertDealToClientAction(slug: string, dealId: string) {
   return withPermission(slug, "clients.create", async () => {
     const ctx = await resolveWorkspace(slug)
-    const deal = await db.deal.findFirst({ where: { id: dealId, workspaceId: ctx.workspaceId }, include: { stage: true, company: true } })
+    const deal = await db.deal.findFirst({
+      where: { id: dealId, workspaceId: ctx.workspaceId },
+      include: { stage: true, company: true },
+    })
     if (!deal) throw new Error("Deal not found.")
     if (!deal.stage?.isWon) throw new Error("Only won deals can be converted.")
     const result = await rpc<Record<string, unknown>>("convert_deal_to_client", {

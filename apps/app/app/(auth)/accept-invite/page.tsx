@@ -13,14 +13,20 @@ export default async function AcceptInvitePage({
 
   const supabase = await createServerClient()
   const tokenHash = createHash("sha256").update(token).digest("hex")
-  const { data: invitationRows } = supabase ? await supabase.rpc("get_invitation", { p_token_hash: tokenHash }) : { data: null }
+  const { data: invitationRows } = supabase
+    ? await supabase.rpc("get_invitation", { p_token_hash: tokenHash })
+    : { data: null }
   const first = invitationRows?.[0]
-  const matched = first ? {
-    id: first.invitation_id,
-    emailNormalized: first.email_normalized,
-    workspace: { name: first.workspace_name, slug: first.workspace_slug },
-    roles: (invitationRows ?? []).map((row) => ({ role: { id: row.role_id, name: row.role_name } })),
-  } : null
+  const matched = first
+    ? {
+        id: first.invitation_id,
+        emailNormalized: first.email_normalized,
+        workspace: { name: first.workspace_name, slug: first.workspace_slug },
+        roles: (invitationRows ?? []).map((row) => ({
+          role: { id: row.role_id, name: row.role_name },
+        })),
+      }
+    : null
 
   if (!matched) {
     return (

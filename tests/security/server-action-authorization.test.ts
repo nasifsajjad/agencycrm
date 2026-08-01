@@ -48,11 +48,14 @@ const SELF_SCOPED: Record<string, string> = {
   "invite-actions.ts:acceptInviteAction": "authorized by invitation token inside accept_invitation",
   // Onboarding creates a workspace the caller will own; create_workspace
   // performs its own checks.
-  "onboarding-actions.ts:createWorkspaceAction": "creates a new workspace, checked in create_workspace RPC",
+  "onboarding-actions.ts:createWorkspaceAction":
+    "creates a new workspace, checked in create_workspace RPC",
   "onboarding-actions.ts:loadDemoDataAction": "creates a new workspace for the caller",
   // Portal actions authorize against the portal identity inside their RPCs.
-  "portal-actions.ts:createClientRequestAction": "scoped to portal identity in create_client_request RPC",
-  "portal-actions.ts:decidePortalApprovalAction": "scoped to portal identity in decide_approval RPC",
+  "portal-actions.ts:createClientRequestAction":
+    "scoped to portal identity in create_client_request RPC",
+  "portal-actions.ts:decidePortalApprovalAction":
+    "scoped to portal identity in decide_approval RPC",
   // Notification state is filtered by ctx.userId in the query itself.
   "crm-actions.ts:markNotificationReadAction": "filtered by ctx.userId",
   "crm-actions.ts:markAllNotificationsReadAction": "filtered by ctx.userId",

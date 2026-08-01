@@ -25,8 +25,14 @@ export async function POST(req: NextRequest) {
   }
   try {
     const result = await processOutbox(50)
-    return NextResponse.json({ ok: true, ...result, time: new Date().toISOString() }, { headers: { "Cache-Control": "no-store" } })
+    return NextResponse.json(
+      { ok: true, ...result, time: new Date().toISOString() },
+      { headers: { "Cache-Control": "no-store" } }
+    )
   } catch {
-    return NextResponse.json({ error: "Outbox processing failed" }, { status: 503, headers: { "Cache-Control": "no-store" } })
+    return NextResponse.json(
+      { error: "Outbox processing failed" },
+      { status: 503, headers: { "Cache-Control": "no-store" } }
+    )
   }
 }

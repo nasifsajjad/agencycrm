@@ -6,9 +6,13 @@ export async function GET(request: NextRequest) {
   const url = new URL(request.url)
   const code = url.searchParams.get("code")
   const type = url.searchParams.get("type")
-  const next = safeRedirectPath(url.searchParams.get("next"), type === "recovery" ? "/reset-password" : "/app")
+  const next = safeRedirectPath(
+    url.searchParams.get("next"),
+    type === "recovery" ? "/reset-password" : "/app"
+  )
   const supabase = await createServerClient()
-  if (!supabase || !code) return NextResponse.redirect(new URL("/sign-in?error=invalid_callback", url.origin))
+  if (!supabase || !code)
+    return NextResponse.redirect(new URL("/sign-in?error=invalid_callback", url.origin))
   const { error } = await supabase.auth.exchangeCodeForSession(code)
   if (error) return NextResponse.redirect(new URL("/sign-in?error=expired_callback", url.origin))
   return NextResponse.redirect(new URL(next, url.origin))

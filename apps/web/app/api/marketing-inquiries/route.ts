@@ -31,7 +31,12 @@ export async function POST(request: NextRequest) {
   const message = text(input.message, 4000)
   const teamSize = text(input.teamSize, 32)
 
-  if (!email.includes("@") || !agency || (input.kind === "contact" && (!firstName || !lastName || !message)) || (input.kind === "demo" && !name)) {
+  if (
+    !email.includes("@") ||
+    !agency ||
+    (input.kind === "contact" && (!firstName || !lastName || !message)) ||
+    (input.kind === "demo" && !name)
+  ) {
     return NextResponse.json({ error: "Please complete all required fields." }, { status: 400 })
   }
 

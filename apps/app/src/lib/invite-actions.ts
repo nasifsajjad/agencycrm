@@ -10,7 +10,8 @@ export async function acceptInviteAction(input: {
   password: string
   displayName?: string
 }) {
-  if (!input.password || input.password.length < 8) return { error: "Password must be at least 8 characters." }
+  if (!input.password || input.password.length < 8)
+    return { error: "Password must be at least 8 characters." }
   const supabase = await createServerClient()
   if (!supabase) return { error: "Supabase is not configured." }
   const email = input.email.trim().toLowerCase()
@@ -32,7 +33,12 @@ export async function acceptInviteAction(input: {
     p_invitation_id: input.invitationId,
   })
   if (error || !workspaceId) return { error: error?.message ?? "Invitation is no longer valid." }
-  const { data: workspace } = await supabase.from("workspaces").select("slug").eq("id", workspaceId).single()
-  if (!workspace || workspace.slug !== input.workspaceSlug) return { error: "Invalid invitation workspace." }
+  const { data: workspace } = await supabase
+    .from("workspaces")
+    .select("slug")
+    .eq("id", workspaceId)
+    .single()
+  if (!workspace || workspace.slug !== input.workspaceSlug)
+    return { error: "Invalid invitation workspace." }
   redirect(`/w/${workspace.slug}`)
 }

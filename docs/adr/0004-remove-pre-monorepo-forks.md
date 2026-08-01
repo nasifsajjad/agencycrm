@@ -9,11 +9,11 @@
 The monorepo split copied `src/lib/*` and `src/components/*` into both apps and
 left the original in place, producing three forks of the same modules:
 
-| Tree | Files | Deployed |
-| --- | --- | --- |
-| `src/` (root) | 185 | no |
-| `apps/app/src` + `apps/app/app` | 174 | yes, port 3001 |
-| `apps/web/src` + `apps/web/app` | 128 | yes, port 3000 |
+| Tree                            | Files | Deployed       |
+| ------------------------------- | ----- | -------------- |
+| `src/` (root)                   | 185   | no             |
+| `apps/app/src` + `apps/app/app` | 174   | yes, port 3001 |
+| `apps/web/src` + `apps/web/app` | 128   | yes, port 3000 |
 
 Two concrete harms followed.
 

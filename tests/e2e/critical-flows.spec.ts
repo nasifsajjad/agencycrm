@@ -18,7 +18,9 @@ test.describe("AgencyOS critical flows", () => {
     await expect(page.getByRole("link", { name: "Terms" })).toBeVisible()
   })
 
-  test("marketing pages render real content, not just an absent error boundary", async ({ page }) => {
+  test("marketing pages render real content, not just an absent error boundary", async ({
+    page,
+  }) => {
     for (const path of [
       "/product",
       "/features",
@@ -128,7 +130,9 @@ test.describe("AgencyOS critical flows", () => {
     expect(res.headers()["location"]).toContain("/sign-in")
   })
 
-  test("open-redirect attempts through the sign-in next parameter are refused", async ({ page }) => {
+  test("open-redirect attempts through the sign-in next parameter are refused", async ({
+    page,
+  }) => {
     for (const hostile of [
       "//evil.example",
       "https://evil.example",
