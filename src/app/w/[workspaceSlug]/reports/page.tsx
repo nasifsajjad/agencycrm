@@ -28,6 +28,7 @@ export default async function ReportsPage({
 }: {
   params: Promise<{ workspaceSlug: string }>
 }) {
+  const asMinor = (value: unknown): bigint => BigInt(value as bigint | number | string)
   const { workspaceSlug } = await params
   const ctx = await resolveWorkspace(workspaceSlug)
   if (!can(ctx, "reports.read")) return <Forbidden />
@@ -61,9 +62,9 @@ export default async function ReportsPage({
   const openDeals = deals.filter((d) => !d.stage?.isClosed)
   const wonDeals = deals.filter((d) => d.stage?.isWon)
   const closedDeals = deals.filter((d) => d.stage?.isClosed)
-  const pipelineValue = openDeals.reduce((s, d) => s + d.amountMinor, 0n)
-  const weightedPipeline = openDeals.reduce(
-    (s, d) => s + (d.amountMinor * BigInt(d.probability)) / 100n,
+  const pipelineValue: bigint = openDeals.reduce((s: bigint, d: any) => s + asMinor(d.amountMinor), 0n)
+  const weightedPipeline: bigint = openDeals.reduce(
+    (s: bigint, d: any) => s + (asMinor(d.amountMinor) * BigInt(d.probability)) / 100n,
     0n
   )
   const winRate =
@@ -71,9 +72,9 @@ export default async function ReportsPage({
   const billableMinutes = timeEntries
     .filter((t) => t.status === "approved")
     .reduce((s, t) => s + t.minutes, 0)
-  const recognizedRevenue = timeEntries
+  const recognizedRevenue: bigint = timeEntries
     .filter((t) => t.status === "approved")
-    .reduce((s, t) => s + (t.rateMinor * BigInt(t.minutes)) / 60n, 0n)
+    .reduce((s: bigint, t: any) => s + (asMinor(t.rateMinor) * BigInt(t.minutes)) / 60n, 0n)
   const pendingApprovals = approvals.filter((a) => a.status === "pending").length
   const avgApprovalAge =
     pendingApprovals > 0
@@ -85,8 +86,8 @@ export default async function ReportsPage({
             (1000 * 60 * 60 * 24)
         )
       : 0
-  const totalInvoiced = invoices.reduce((s, i) => s + i.totalMinor, 0n)
-  const totalCollected = invoices.reduce((s, i) => s + i.paidMinor, 0n)
+  const totalInvoiced: bigint = invoices.reduce((s: bigint, i: any) => s + asMinor(i.totalMinor), 0n)
+  const totalCollected: bigint = invoices.reduce((s: bigint, i: any) => s + asMinor(i.paidMinor), 0n)
 
   // Pipeline by stage
   const stages = new Map<

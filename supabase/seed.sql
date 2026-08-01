@@ -3,9 +3,7 @@
 -- NEVER run in production. Demo accounts are created with a known password
 -- and are explicitly DISABLED in production mode (see src/lib/seed.ts).
 
--- Note: in local-only mode (no Supabase configured), the equivalent seed is
--- performed by `bun run scripts/seed-demo-user.ts`, which uses the Prisma
--- client. This SQL file is for `supabase db seed` in local Supabase mode.
+-- This SQL file is for `supabase db seed` in a non-production Supabase project.
 
 -- Demo: create auth.users for the 5 demo identities. Password hash is for
 -- "demo-pass-12345" — only created when NODE_ENV !== 'production'.
@@ -35,6 +33,5 @@ from (values
 where current_setting('app.demo_seed', true) = 'on'
 on conflict do nothing;
 
--- The full Northstar demo agency is then seeded by the application bootstrap
--- (see src/lib/workspace.ts + src/lib/seed.ts), invoked from the onboarding
--- "Load demo agency" button.
+-- Additional fixtures should be added here as RLS-scoped SQL or an explicit
+-- non-production admin job; onboarding never seeds arbitrary demo records.

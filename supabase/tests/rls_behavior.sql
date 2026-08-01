@@ -5,7 +5,7 @@
 begin;
 
 insert into auth.users (
-  id, instance_id, aud, role, email, encrypted_password, confirmed_at,
+  id, instance_id, aud, role, email, encrypted_password, email_confirmed_at,
   raw_app_meta_data, raw_user_meta_data, created_at, updated_at
 ) values
   ('10000000-0000-4000-8000-000000000001', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'owner-a@example.test', 'not-used', now(), '{"provider":"email","providers":["email"]}', '{}', now(), now()),
@@ -34,8 +34,34 @@ begin
   end if;
 end $$;
 
+-- Portal visibility is explicit to the client, never inherited from a
+-- workspace membership. Owner A creates a client portal; owner B must not see
+-- either the client or its portal by guessing the IDs/slug.
+reset role;
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000000001', true);
+insert into public.clients (workspace_id, name, owner_user_id, portal_slug)
+select id, 'Client A', owner_id, 'client-a-portal'
+from public.workspaces where slug = 'workspace-a';
+select set_config('app.client_a', id::text, true) from public.clients where portal_slug = 'client-a-portal';
+insert into public.client_portals (workspace_id, client_id, slug)
+select workspace_id, id, 'portal-a'
+from public.clients where id = current_setting('app.client_a')::uuid;
+
+select set_config('request.jwt.claim.sub', '20000000-0000-4000-8000-000000000002', true);
+do $$
+begin
+  if exists (select 1 from public.clients where id = current_setting('app.client_a')::uuid) then
+    raise exception 'owner B read a client from workspace A';
+  end if;
+  if exists (select 1 from public.client_portals where slug = 'portal-a') then
+    raise exception 'owner B read a portal from workspace A';
+  end if;
+end $$;
+
 -- Even an owner with workspace.update may not transfer ownership by updating
 -- the row directly.
+select set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000000001', true);
 do $$
 begin
   begin

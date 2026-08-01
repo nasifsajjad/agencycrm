@@ -219,10 +219,12 @@ describe("Supabase migration RLS coverage", () => {
   })
 
   it("defines storage buckets as private", () => {
-    expect(sql).toContain("'workspace-assets', 'workspace-assets', false")
-    expect(sql).toContain("'avatars', 'avatars', false")
-    expect(sql).toContain("'imports', 'imports', false")
-    expect(sql).toContain("'exports', 'exports', false")
+    expect(sql).toContain("insert into storage.buckets (id, name)")
+    expect(sql).toContain("('workspace-assets', 'workspace-assets')")
+    expect(sql).toContain("('avatars', 'avatars')")
+    expect(sql).toContain("('imports', 'imports')")
+    expect(sql).toContain("('exports', 'exports')")
+    expect(sql).toContain("-- Buckets (private)")
   })
 
   it("creates storage.objects policies for select, insert, update, delete", () => {

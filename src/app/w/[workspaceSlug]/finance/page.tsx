@@ -13,6 +13,7 @@ export default async function FinancePage({
 }: {
   params: Promise<{ workspaceSlug: string }>
 }) {
+  const asMinor = (value: unknown): bigint => BigInt(value as bigint | number | string)
   const { workspaceSlug } = await params
   const ctx = await resolveWorkspace(workspaceSlug)
   if (!can(ctx, "finance.read")) return <Forbidden />
@@ -40,14 +41,14 @@ export default async function FinancePage({
     }),
   ])
 
-  const totalInvoiced = invoices.reduce((s, i) => s + i.totalMinor, 0n)
-  const totalPaid = invoices.reduce((s, i) => s + i.paidMinor, 0n)
-  const outstanding = invoices
+  const totalInvoiced: bigint = invoices.reduce((s: bigint, i: any) => s + asMinor(i.totalMinor), 0n)
+  const totalPaid: bigint = invoices.reduce((s: bigint, i: any) => s + asMinor(i.paidMinor), 0n)
+  const outstanding: bigint = invoices
     .filter((i) => i.status === "sent")
-    .reduce((s, i) => s + (i.totalMinor - i.paidMinor), 0n)
-  const totalExpenses = expenses.reduce((s, e) => s + e.amountMinor, 0n)
-  const recognizedRevenue = timeEntries.reduce(
-    (s, t) => s + (t.rateMinor * BigInt(t.minutes)) / 60n,
+    .reduce((s: bigint, i: any) => s + (asMinor(i.totalMinor) - asMinor(i.paidMinor)), 0n)
+  const totalExpenses: bigint = expenses.reduce((s: bigint, e: any) => s + asMinor(e.amountMinor), 0n)
+  const recognizedRevenue: bigint = timeEntries.reduce(
+    (s: bigint, t: any) => s + (asMinor(t.rateMinor) * BigInt(t.minutes)) / 60n,
     0n
   )
   const grossProfit = recognizedRevenue - totalExpenses

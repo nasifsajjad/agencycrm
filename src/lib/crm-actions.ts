@@ -1,6 +1,7 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
+import { createHash } from "node:crypto"
 import { db } from "@/lib/db"
 import { can, AuthorizationError } from "@/lib/auth"
 import type { Permission } from "@/lib/permissions"
@@ -695,7 +696,7 @@ export async function inviteMemberAction(slug: string, formData: FormData) {
     if (!role) throw new Error("Invalid role.")
 
     const token = crypto.randomUUID()
-    const tokenHash = await import("bcryptjs").then((m) => m.hash(token, 10))
+    const tokenHash = createHash("sha256").update(token).digest("hex")
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
 
     const invitation = await db.invitation.create({

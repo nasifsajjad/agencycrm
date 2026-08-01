@@ -4,10 +4,8 @@
  * Production: uses @supabase/supabase-js + @supabase/ssr with NEXT_PUBLIC_SUPABASE_URL
  * and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.
  *
- * Local fallback: when those env vars are missing, the app falls back to the
- * existing Prisma-backed local adapter (lib/local/*). This lets the sandbox
- * run without a live Supabase instance, while the production deployment uses
- * real Supabase Auth, RLS, and Storage.
+ * When those env vars are missing, browser auth actions fail closed. There is
+ * no alternate session implementation in the production bundle.
  */
 
 import { createBrowserClient as supabaseBrowserClient } from "@supabase/ssr"
@@ -27,7 +25,7 @@ export function createBrowserClient(): SupabaseClient | null {
 }
 
 /**
- * Magic-link sign-in. Falls back to local adapter when Supabase isn't configured.
+ * Password sign-in through Supabase Auth.
  */
 export async function signInWithPassword(email: string, password: string) {
   const client = createBrowserClient()

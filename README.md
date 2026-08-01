@@ -6,31 +6,20 @@
 
 ```bash
 # 1. Install deps
-bun install
+pnpm install
 
 # 2. Set up the database
-bun run db:push
+pnpm supabase:start
+pnpm db:push
 
 # 3. Start the dev server (auto-runs on port 3000)
-# Dev server starts automatically in the sandbox; locally, run `bun run dev`
+# locally, run `pnpm dev` for the compatibility root or `pnpm dev:web` / `pnpm dev:app`
 
 # 4. Visit http://localhost:3000
 #    Sign up, then either create an empty workspace or load demo data.
 ```
 
-## Demo credentials
-
-After loading demo data, the following accounts are created (password: `demo-pass-12345`):
-
-- `sarah@northstar.demo` — Sales
-- `marcus@northstar.demo` — Account Manager
-- `jordan@northstar.demo` — Team Member (designer)
-- `rio@northstar.demo` — Contractor (copywriter)
-
-Plus two demo client portals (no auth in local mode):
-
-- `/portal/aurora-portal`
-- `/portal/helix-portal`
+Local development uses Supabase Auth. Create a test account through `/sign-up`; demo credentials are not enabled by the application.
 
 ## What's inside
 
@@ -54,15 +43,16 @@ Plus two demo client portals (no auth in local mode):
 AgencyOS is built on:
 
 - **Next.js 16** App Router with React Server Components and Server Actions
-- **Prisma** + SQLite (Postgres-compatible schema; see `docs/adr/0001-sandbox-stack-substitution.md` for the rationale)
-- **bcryptjs + jose** for password hashing and JWT session cookies
+- **Supabase Postgres + RLS** through request-scoped `@supabase/ssr` and PostgREST
+- **Supabase Auth** for password, recovery, invitation acceptance, and session cookies
+- **Supabase Storage** for private binary objects and signed downloads
 - **Tailwind CSS 4** + shadcn/ui for the design system
 - **TanStack Table + dnd-kit** for data grids and drag-and-drop boards
 - **Zod** at trust boundaries
 
 ### Security model
 
-- **Tenant isolation** is enforced at the application layer. Every tenant-owned query includes `workspaceId` derived from the resolved `WorkspaceContext`, never from browser-supplied data.
+- **Tenant isolation** is enforced by Postgres RLS and relationship triggers. Application queries also derive workspace context from the authenticated membership, never from browser-supplied workspace IDs.
 - **Permissions** are checked server-side on every mutation via the `can(ctx, permission)` helper. UI gating is presentation only.
 - **Audit events** are append-only and capture every permission, approval, export, and financial mutation.
 - **Portal users** see only explicitly shared records — never inherited from workspace membership.
@@ -75,8 +65,9 @@ See [`docs/security.md`](docs/security.md) and the ADRs in `docs/adr/` for detai
 .
 ├── AGENTS.md                  # Operating guide for AI agents
 ├── README.md                  # This file
-├── prisma/
-│   └── schema.prisma          # Full data model
+├── supabase/
+│   ├── migrations/            # Postgres schema, RLS, Auth RPCs, Storage policies
+│   └── tests/                 # Behavioral RLS checks
 ├── docs/
 │   ├── CURRENT_STATE.md       # What's done vs. deferred
 │   ├── adr/                   # Architecture Decision Records
@@ -96,7 +87,9 @@ See [`docs/security.md`](docs/security.md) and the ADRs in `docs/adr/` for detai
 │   │   ├── app/               # CRM app components
 │   │   ├── portal/            # Portal components
 │   │   └── auth/              # Auth forms
-│   └── lib/                   # Server-only modules (db, auth, permissions, audit)
+│   └── lib/                   # Server-only Supabase boundary, auth, permissions, audit
+├── apps/web/                  # Deployable marketing Vercel app
+└── apps/app/                  # Deployable CRM/portal Vercel app
 └── .env.example               # Environment template
 ```
 

@@ -2,12 +2,7 @@
 
 import { redirect } from "next/navigation"
 import { createServerClient } from "@/lib/supabase/server"
-import { normalizeEmail } from "@/lib/auth"
-
-function isSafeRedirect(target: string | undefined | null) {
-  if (!target || typeof target !== "string" || !target.startsWith("/") || target.startsWith("//") || target.includes(":")) return "/"
-  return target
-}
+import { normalizeEmail, isSafeRedirect } from "@/lib/auth"
 
 export async function signInAction(formData: FormData) {
   const email = normalizeEmail(String(formData.get("email") ?? ""))

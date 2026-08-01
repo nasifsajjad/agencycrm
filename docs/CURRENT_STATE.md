@@ -1,36 +1,36 @@
 # AgencyOS — Current State
 
-Updated 2026-08-01 after a source-level and real-local-Supabase audit.
+Updated 2026-08-01 after the Supabase request-path implementation and local live verification.
 
-## Verified
+## Implemented
 
-- The repository is a pnpm workspace with `apps/web`, `apps/app`, and shared packages, but the product runtime is still the root `src/` Next application. The two workspace apps are package manifests only; they are not separately deployable product applications.
-- The root runtime still uses Prisma with the SQLite schema and custom bcrypt/JWT sessions for nearly all product actions. `@supabase/ssr` client factories exist, but do not provide a working production data/auth adapter. Setting Supabase credentials therefore does **not** activate a functional Supabase production path.
-- All nine SQL migrations now apply to a clean isolated Supabase PostgreSQL 17.4 database with Supabase Auth and Storage schemas. The successful run created 80 public tables.
-- `supabase/tests/rls_behavior.sql` executes against real `authenticated`/`anon` roles with `request.jwt.claim.sub`: owner access succeeds; a second workspace owner cannot SELECT the first workspace or its contact; cross-workspace INSERT is denied by `WITH CHECK`; anonymous SELECT is denied.
+- Authenticated requests now use request-scoped `@supabase/ssr` Auth cookies and profile rows. Custom JWT sessions, bcrypt password verification, and the local session adapter are no longer in the application request path.
+- Tenant reads and writes use the Supabase PostgREST adapter in `src/lib/db.ts`; query results are translated to the existing domain shape, relation hydration is RLS-scoped, and no Prisma dependency remains in the app packages.
+- Workspace creation uses the atomic `public.create_workspace` RPC. Invitation acceptance uses `public.accept_invitation`; invitation preview uses a SHA-256 token lookup RPC without exposing token hashes.
+- Audit writes use the append-only `public.record_audit` wrapper and `private.record_audit`; direct authenticated inserts remain denied.
+- Binary uploads, downloads, signed URLs, and deletes use Supabase Storage with `storage.objects` RLS plus the tenant metadata row in `public.files`.
+- `apps/web` is a deployable marketing Next app and `apps/app` is a deployable authenticated CRM/portal Next app. Their route adapters cover the complete root marketing, auth, workspace, portal, API, exports, imports, notifications, and file route surface.
+- Authorization tests now exercise permission behavior, tenant/RLS policy coverage, portal explicit-client rules, safe redirects, CSV permission gates, and migration relationship guards.
 
-## Repairs made during the audit
+## Verification
 
-- Fixed the `visibility` enum so saved views/dashboards (`private`/`workspace`) can be created.
-- Corrected profile RLS to use `profiles.user_id`, not the nonexistent `id` column.
-- Corrected invalid multi-clause RLS policy syntax for comments, activity events, and knowledge pages.
-- Granted authenticated users table privileges; RLS policies were previously unreachable because PostgreSQL rejected access before policy evaluation.
-- Made Storage bucket creation compatible with supported local Storage schema revisions and made object-path UUID parsing safe. Avatar owner access now works as documented.
-- Fixed `create_workspace`: invalid `regexp_match` boolean use and a multi-row `RETURNING ... INTO` failure in role bootstrap.
-- Added immutable workspace-owner enforcement and executable behavioral RLS coverage.
+All of the following pass with the pinned Node 24 runtime:
 
-## Production readiness
-
-**Not ready to deploy.** The SQL/RLS layer now has fresh-database and core behavioral evidence, but the application remains SQLite/Prisma-backed and the Supabase Auth/Storage adapter is incomplete. Invitations, portal isolation, reports, exports, notifications, signed-file access, client/contractor/suspension cases, and Storage policies still need end-to-end behavioral tests against the real Supabase application path. Existing Vitest security tests inspect SQLite application behavior or SQL text and are not sufficient evidence for those claims.
-
-The required release architecture remains pnpm/Turborepo, separate `apps/web` and `apps/app`, Next.js, Supabase Postgres/Auth (`@supabase/ssr`)/Storage with database RLS, and Vercel. Prisma/SQLite must be removed from the production request path before deployment.
-
-## Audit commands and results
-
-```bash
-# isolated Docker-backed Supabase PostgreSQL 17.4
-docker exec … psql … -f supabase/migrations/0001_extensions_schemas.sql  # through 0009: pass
-docker exec … psql … -f supabase/tests/rls_behavior.sql                  # pass (transaction rolls back)
+```text
+TypeScript: root tsconfig and apps/app tsconfig
+ESLint: repository source tree
+Vitest: 7 files, 51 tests
+Next production build: root app
+Next production build: apps/web
+Next production build: apps/app
+Supabase migrations 0001–0012: clean local Docker Postgres 17.4
+supabase/tests/rls_behavior.sql: pass, including cross-workspace and portal isolation cases
 ```
 
-Fresh pnpm installation could not complete in this environment because the shell defaults to Node 12 while the project requires Node >=20; the pinned Node 24 runtime was used for tooling, but the package install process was interrupted before creating `node_modules`/`pnpm-lock.yaml`. No application lint, TypeScript, Vitest, Playwright, or Next production-build result is claimed from this audit.
+The local Supabase database used for verification is the named Docker container `supabase_db_agencyos-local`. It was reset locally before replaying the migrations. Production was not contacted or modified.
+
+## Remaining external prerequisite
+
+The repository `.env` intentionally has no Supabase URL/key. A human deployment operator must provide the target Supabase project URL, publishable key, and service-role key through the deployment secret manager, run `supabase db push` against that non-production project, and configure the two Vercel projects. No deployment or production change was made here.
+
+The legacy `prisma/schema.prisma` and historical ADR/worklog references remain as migration history/documentation only; they are not used by the application packages or request path.

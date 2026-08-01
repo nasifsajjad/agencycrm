@@ -1,19 +1,17 @@
 /**
  * AgencyOS — Storage adapter.
  *
- * Production: uses Supabase Storage with RLS-governed buckets.
- * Local fallback: writes files to /home/z/my-project/.storage/ and serves
- * them via a Next.js route handler. Metadata is always stored in the
- * `files` table (Prisma in local mode, public.files in Supabase mode).
+ * Supabase Storage is the binary source of truth and the `files` table stores
+ * tenant-scoped metadata. Both operations use the request-scoped user client,
+ * so storage.objects RLS is enforced in addition to application permissions.
  */
 
-import { promises as fs } from "node:fs"
 import path from "node:path"
 import { randomUUID } from "node:crypto"
 import { db } from "@/lib/db"
 import type { WorkspaceContext } from "@/lib/auth"
+import { createServerClient } from "@/lib/supabase/server"
 
-const LOCAL_STORAGE_DIR = process.env.LOCAL_STORAGE_DIR || "/home/z/my-project/.storage"
 const ALLOWED_MIME = new Set([
   "image/png",
   "image/jpeg",
@@ -59,7 +57,9 @@ export interface UploadResult {
 
 /**
  * Validate, store, and record a file upload.
- * In local mode, writes to disk; in Supabase mode, uploads to the storage bucket.
+ * Upload the binary first so a metadata row is never visible for a missing
+ * object. The metadata insert is rolled back with a best-effort object delete
+ * if PostgREST rejects the row.
  */
 export async function uploadFile(input: UploadInput): Promise<UploadResult> {
   // Validate MIME
@@ -77,14 +77,17 @@ export async function uploadFile(input: UploadInput): Promise<UploadResult> {
   const objectPath = `${workspaceId}/${randomUUID()}${ext}`
   const checksum = await computeChecksum(input.body)
 
-  // Local storage: write to disk
-  await fs.mkdir(path.dirname(path.join(LOCAL_STORAGE_DIR, bucket, objectPath)), {
-    recursive: true,
+  const supabase = await createServerClient()
+  if (!supabase) throw new Error("Supabase is not configured")
+  const { error: uploadError } = await supabase.storage.from(bucket).upload(objectPath, input.body, {
+    contentType: input.contentType,
+    upsert: false,
   })
-  await fs.writeFile(path.join(LOCAL_STORAGE_DIR, bucket, objectPath), input.body)
+  if (uploadError) throw uploadError
 
-  // Persist metadata in the files table
-  const file = await db.fileRecord.create({
+  let file
+  try {
+    file = await db.fileRecord.create({
     data: {
       workspaceId,
       bucket,
@@ -97,7 +100,11 @@ export async function uploadFile(input: UploadInput): Promise<UploadResult> {
       visibility: input.visibility ?? "internal",
       scanStatus: "clean",
     },
-  })
+    })
+  } catch (error) {
+    await supabase.storage.from(bucket).remove([objectPath])
+    throw error
+  }
 
   // Link to entity if provided
   if (input.entityType && input.entityId) {
@@ -118,8 +125,8 @@ export async function uploadFile(input: UploadInput): Promise<UploadResult> {
 }
 
 /**
- * Read a file from local storage (or fetch a signed URL from Supabase).
- * Returns a stream + metadata for the route handler to pipe.
+ * Download a file through the authenticated Storage client after the metadata
+ * lookup has applied the workspace boundary.
  */
 export async function readFile(
   ctx: WorkspaceContext,
@@ -129,27 +136,18 @@ export async function readFile(
     where: { id: fileId, workspaceId: ctx.workspaceId },
   })
   if (!file) return null
-  // Production path: when NEXT_PUBLIC_SUPABASE_URL is set, this would call
-  // supabase.storage.from(bucket).createSignedUrl(objectPath, 60) and return a
-  // redirect. The local adapter reads from disk so we can verify the download
-  // path end-to-end without external dependencies.
-  try {
-    const body = await fs.readFile(path.join(LOCAL_STORAGE_DIR, file.bucket, file.objectPath))
-    return {
-      body,
-      contentType: file.contentType ?? "application/octet-stream",
-      size: Number(file.sizeBytes),
-      originalName: file.originalName,
-    }
-  } catch {
-    return null
-  }
+  const supabase = await createServerClient()
+  if (!supabase) return null
+  const { data: blob, error } = await supabase.storage.from(file.bucket).download(file.objectPath)
+  if (error || !blob) return null
+  return { body: Buffer.from(await blob.arrayBuffer()), contentType: file.contentType ?? "application/octet-stream", size: Number(file.sizeBytes), originalName: file.originalName }
 }
 
 /**
  * Generate a short-lived signed URL for downloading a file.
  * In Supabase mode this uses supabase.storage.from(bucket).createSignedUrl().
- * In local mode it returns a path to /api/files/[id]/download which checks membership.
+ * The route still performs the membership/permission check before returning
+ * the short-lived signed URL.
  */
 export async function createSignedDownloadUrl(
   ctx: WorkspaceContext,
@@ -160,8 +158,11 @@ export async function createSignedDownloadUrl(
     where: { id: fileId, workspaceId: ctx.workspaceId },
   })
   if (!file) return null
-  // Local: route handler checks session + membership
-  return `/api/files/${fileId}/download?exp=${Date.now() + expiresInSec * 1000}`
+  const supabase = await createServerClient()
+  if (!supabase) return null
+  const { data, error } = await supabase.storage.from(file.bucket).createSignedUrl(file.objectPath, expiresInSec)
+  if (error) return null
+  return data.signedUrl
 }
 
 async function computeChecksum(buf: Buffer): Promise<string> {
@@ -179,11 +180,8 @@ export async function deleteFile(ctx: WorkspaceContext, fileId: string): Promise
   if (!file) throw new Error("File not found")
   await db.fileLink.deleteMany({ where: { fileId } })
   await db.fileRecord.delete({ where: { id: fileId } })
-  try {
-    await fs.unlink(path.join(LOCAL_STORAGE_DIR, file.bucket, file.objectPath))
-  } catch {
-    // best-effort
-  }
+  const supabase = await createServerClient()
+  if (supabase) await supabase.storage.from(file.bucket).remove([file.objectPath])
 }
 
 /**

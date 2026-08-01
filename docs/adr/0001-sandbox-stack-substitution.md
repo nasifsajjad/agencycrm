@@ -1,7 +1,7 @@
 # ADR 0001 — Sandbox stack substitution
 
 **Date:** 2026-07-30
-**Status:** Accepted
+**Status:** Superseded by the production-stack implementation in the current state and by the live Supabase migrations.
 
 ## Context
 

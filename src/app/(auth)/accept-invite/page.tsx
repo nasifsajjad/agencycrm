@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation"
-import { db } from "@/lib/db"
+import { createHash } from "node:crypto"
 import { AcceptInviteForm } from "@/components/auth/accept-invite-form"
+import { createServerClient } from "@/lib/supabase/server"
 
 export default async function AcceptInvitePage({
   searchParams,
@@ -10,22 +11,16 @@ export default async function AcceptInvitePage({
   const { token } = await searchParams
   if (!token) redirect("/sign-in")
 
-  // Find invitation by token hash (we stored bcrypt hash, so we need to iterate)
-  // In local mode, we'll do a linear scan and compare with bcrypt
-  const invitations = await db.invitation.findMany({
-    where: { acceptedAt: null, revokedAt: null, expiresAt: { gt: new Date() } },
-    include: { workspace: true, roles: { include: { role: true } } },
-  })
-
-  const bcrypt = await import("bcryptjs")
-  let matched: (typeof invitations)[number] | null = null
-  for (const inv of invitations) {
-    const ok = await bcrypt.compare(token, inv.tokenHash)
-    if (ok) {
-      matched = inv
-      break
-    }
-  }
+  const supabase = await createServerClient()
+  const tokenHash = createHash("sha256").update(token).digest("hex")
+  const { data: invitationRows } = supabase ? await supabase.rpc("get_invitation", { p_token_hash: tokenHash }) : { data: null }
+  const first = invitationRows?.[0]
+  const matched = first ? {
+    id: first.invitation_id,
+    emailNormalized: first.email_normalized,
+    workspace: { name: first.workspace_name, slug: first.workspace_slug },
+    roles: (invitationRows ?? []).map((row) => ({ role: { id: row.role_id, name: row.role_name } })),
+  } : null
 
   if (!matched) {
     return (

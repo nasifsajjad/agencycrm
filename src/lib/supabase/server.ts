@@ -4,8 +4,8 @@
  * Production: creates a request-scoped server client using @supabase/ssr and
  * Next.js cookies. Never shared globally — cookies are per-request.
  *
- * Local fallback: returns null when Supabase env vars are missing; callers
- * fall back to the Prisma-backed local adapter.
+ * When credentials are absent, callers fail closed rather than switching to a
+ * second authentication or database implementation.
  */
 
 import { cookies } from "next/headers"
@@ -53,26 +53,4 @@ export function createServiceClient(): SupabaseClient | null {
   return createSupabaseClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   })
-}
-
-/**
- * Resolve the current authenticated user. Tries Supabase first, falls back
- * to the local session cookie.
- */
-export async function getCurrentUser() {
-  const supabase = await createServerClient()
-  if (supabase) {
-    const { data, error } = await supabase.auth.getUser()
-    if (error || !data.user) return null
-    return {
-      id: data.user.id,
-      email: data.user.email ?? "",
-      emailNormalized: (data.user.email ?? "").toLowerCase().trim(),
-      displayName:
-        (data.user.user_metadata as any)?.display_name ?? data.user.email?.split("@")[0] ?? "User",
-    }
-  }
-  // Fallback: local adapter
-  const { getCurrentUser: getLocalUser } = await import("@/lib/local/auth")
-  return getLocalUser()
 }
