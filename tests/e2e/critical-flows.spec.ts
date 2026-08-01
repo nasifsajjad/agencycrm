@@ -18,7 +18,7 @@ test.describe("AgencyOS critical flows", () => {
     await expect(page.getByRole("link", { name: "Terms" })).toBeVisible()
   })
 
-  test("marketing pages are reachable", async ({ page }) => {
+  test("marketing pages render real content, not just an absent error boundary", async ({ page }) => {
     for (const path of [
       "/product",
       "/features",
@@ -32,9 +32,12 @@ test.describe("AgencyOS critical flows", () => {
       "/privacy",
       "/terms",
     ]) {
-      await page.goto(path)
+      const res = await page.goto(path)
+      // `not.toContainText("Application error")` passes on a blank page, a 404,
+      // and a 500 alike. Assert the page actually served and rendered.
+      expect(res?.status(), `${path} should return 2xx`).toBeLessThan(400)
       await expect(page).toHaveURL(path)
-      // No error boundary
+      await expect(page.locator("h1")).toBeVisible()
       await expect(page.locator("body")).not.toContainText("Application error")
     }
   })
@@ -80,9 +83,62 @@ test.describe("AgencyOS critical flows", () => {
     expect(body.db).toBe("ok")
   })
 
-  test("client portal does not expose an unauthenticated workspace", async ({ page }) => {
+  test("client portal does not expose client data to an anonymous visitor", async ({ page }) => {
     const res = await page.goto(appPath("/portal/aurora-portal"))
     expect(res).not.toBeNull()
-    await expect(page.locator("body")).not.toContainText("Application error")
+
+    // The original assertion here was only `not.toContainText("Application
+    // error")`, which a fully-rendered portal leaking every client record
+    // would also satisfy. Assert the actual security property: an anonymous
+    // visitor is either bounced to sign-in or shown a not-found, and in no
+    // case sees portal contents.
+    const url = page.url()
+    const status = res!.status()
+    expect(
+      /\/sign-in/.test(url) || status === 404 || status === 403,
+      `anonymous portal visit should be denied, got ${status} at ${url}`
+    ).toBeTruthy()
+
+    if (!/\/sign-in/.test(url)) {
+      const body = page.locator("body")
+      await expect(body).not.toContainText(/Projects/i)
+      await expect(body).not.toContainText(/Approvals/i)
+      await expect(body).not.toContainText(/Files/i)
+    }
+  })
+
+  test("password reset request always answers the same way", async ({ page }) => {
+    // The response must not differ between a known and an unknown address, or
+    // the form becomes an account-enumeration oracle.
+    await page.goto(appPath("/forgot-password"))
+    await page.getByLabel("Email").fill("definitely-not-a-user@example.invalid")
+    await page.getByRole("button", { name: /Send reset link/i }).click()
+    await expect(page.locator("body")).toContainText(/reset link is on its way/i)
+  })
+
+  test("sign-in offers magic link as well as password", async ({ page }) => {
+    await page.goto(appPath("/sign-in"))
+    await expect(page.getByRole("button", { name: /Email me a sign-in link/i })).toBeVisible()
+  })
+
+  test("auth callback rejects a request with no code", async ({ request }) => {
+    const res = await request.get(appPath("/auth/callback"), { maxRedirects: 0 })
+    expect(res.status()).toBeGreaterThanOrEqual(300)
+    expect(res.status()).toBeLessThan(400)
+    expect(res.headers()["location"]).toContain("/sign-in")
+  })
+
+  test("open-redirect attempts through the sign-in next parameter are refused", async ({ page }) => {
+    for (const hostile of [
+      "//evil.example",
+      "https://evil.example",
+      "/%2f%2fevil.example",
+      "/\\evil.example",
+    ]) {
+      await page.goto(appPath(`/sign-in?next=${encodeURIComponent(hostile)}`))
+      // Whatever happens, the user must still be on this origin.
+      expect(page.url().startsWith(appOrigin)).toBeTruthy()
+      await expect(page.getByLabel("Email")).toBeVisible()
+    }
   })
 })
