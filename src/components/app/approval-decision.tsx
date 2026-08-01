@@ -1,38 +1,38 @@
-"use client";
+"use client"
 
-import * as React from "react";
-import { useRouter } from "next/navigation";
-import { Check, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { decideApprovalAction } from "@/lib/crm-actions";
-import { toast } from "sonner";
+import * as React from "react"
+import { useRouter } from "next/navigation"
+import { Check, X } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
+import { decideApprovalAction } from "@/lib/crm-actions"
+import { toast } from "sonner"
 
 export function ApprovalDecisionButtons({
   workspaceSlug,
   approvalId,
 }: {
-  workspaceSlug: string;
-  approvalId: string;
+  workspaceSlug: string
+  approvalId: string
 }) {
-  const [pending, setPending] = React.useState(false);
-  const [note, setNote] = React.useState("");
-  const router = useRouter();
+  const [pending, setPending] = React.useState(false)
+  const [note, setNote] = React.useState("")
+  const router = useRouter()
 
   async function decide(decision: "approved" | "changes_requested") {
-    setPending(true);
+    setPending(true)
     try {
-      const res = await decideApprovalAction(workspaceSlug, approvalId, decision, note);
+      const res = await decideApprovalAction(workspaceSlug, approvalId, decision, note)
       if (res?.error) {
-        toast.error(res.error);
-        return;
+        toast.error(res.error)
+        return
       }
-      toast.success(decision === "approved" ? "Approved" : "Changes requested");
-      setNote("");
-      router.refresh();
+      toast.success(decision === "approved" ? "Approved" : "Changes requested")
+      setNote("")
+      router.refresh()
     } finally {
-      setPending(false);
+      setPending(false)
     }
   }
 
@@ -40,7 +40,13 @@ export function ApprovalDecisionButtons({
     <div className="space-y-3">
       <div className="space-y-1.5">
         <Label htmlFor="note">Decision note (optional)</Label>
-        <Textarea id="note" value={note} onChange={(e) => setNote(e.target.value)} rows={3} placeholder="Add context for your decision…" />
+        <Textarea
+          id="note"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          rows={3}
+          placeholder="Add context for your decision…"
+        />
       </div>
       <div className="flex gap-2">
         <Button
@@ -60,5 +66,5 @@ export function ApprovalDecisionButtons({
         </Button>
       </div>
     </div>
-  );
+  )
 }

@@ -1,20 +1,20 @@
-import Link from "next/link";
-import { db } from "@/lib/db";
-import { resolveWorkspace } from "@/lib/server";
-import { can } from "@/lib/auth";
-import { PageHeader, EmptyState, Forbidden } from "@/components/app/states";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { humanStatus, classForStatus, relativeTime, formatDate } from "@/lib/format";
+import Link from "next/link"
+import { db } from "@/lib/db"
+import { resolveWorkspace } from "@/lib/server"
+import { can } from "@/lib/auth"
+import { PageHeader, EmptyState, Forbidden } from "@/components/app/states"
+import { Card } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { humanStatus, classForStatus, relativeTime, formatDate } from "@/lib/format"
 
 export default async function ApprovalsPage({
   params,
 }: {
-  params: Promise<{ workspaceSlug: string }>;
+  params: Promise<{ workspaceSlug: string }>
 }) {
-  const { workspaceSlug } = await params;
-  const ctx = await resolveWorkspace(workspaceSlug);
-  if (!can(ctx, "approvals.read")) return <Forbidden />;
+  const { workspaceSlug } = await params
+  const ctx = await resolveWorkspace(workspaceSlug)
+  if (!can(ctx, "approvals.read")) return <Forbidden />
 
   const approvals = await db.approvalRequest.findMany({
     where: { workspaceId: ctx.workspaceId },
@@ -25,10 +25,10 @@ export default async function ApprovalsPage({
     },
     orderBy: { createdAt: "desc" },
     take: 100,
-  });
+  })
 
-  const pending = approvals.filter((a) => a.status === "pending");
-  const decided = approvals.filter((a) => a.status !== "pending");
+  const pending = approvals.filter((a) => a.status === "pending")
+  const decided = approvals.filter((a) => a.status !== "pending")
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
@@ -45,7 +45,9 @@ export default async function ApprovalsPage({
         <div className="space-y-6">
           {pending.length > 0 && (
             <div>
-              <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-muted-foreground">Pending</h2>
+              <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-muted-foreground">
+                Pending
+              </h2>
               <div className="grid gap-3 md:grid-cols-2">
                 {pending.map((a) => (
                   <ApprovalCard key={a.id} approval={a} workspaceSlug={workspaceSlug} />
@@ -55,7 +57,9 @@ export default async function ApprovalsPage({
           )}
           {decided.length > 0 && (
             <div>
-              <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-muted-foreground">Decided</h2>
+              <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-muted-foreground">
+                Decided
+              </h2>
               <div className="grid gap-3 md:grid-cols-2">
                 {decided.map((a) => (
                   <ApprovalCard key={a.id} approval={a} workspaceSlug={workspaceSlug} />
@@ -66,11 +70,14 @@ export default async function ApprovalsPage({
         </div>
       )}
     </div>
-  );
+  )
 }
 
 function ApprovalCard({ approval, workspaceSlug }: { approval: any; workspaceSlug: string }) {
-  const dueSoon = approval.dueAt && new Date(approval.dueAt) < new Date(Date.now() + 2 * 24 * 60 * 60 * 1000) && approval.status === "pending";
+  const dueSoon =
+    approval.dueAt &&
+    new Date(approval.dueAt) < new Date(Date.now() + 2 * 24 * 60 * 60 * 1000) &&
+    approval.status === "pending"
   return (
     <Card className="p-4">
       <div className="flex items-start justify-between gap-2">
@@ -80,7 +87,9 @@ function ApprovalCard({ approval, workspaceSlug }: { approval: any; workspaceSlu
             v{approval.versionNumber} · {approval.entityType}
           </div>
         </Link>
-        <Badge variant="outline" className={classForStatus(approval.status)}>{humanStatus(approval.status)}</Badge>
+        <Badge variant="outline" className={classForStatus(approval.status)}>
+          {humanStatus(approval.status)}
+        </Badge>
       </div>
       {approval.instructions && (
         <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{approval.instructions}</p>
@@ -88,9 +97,11 @@ function ApprovalCard({ approval, workspaceSlug }: { approval: any; workspaceSlu
       <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
         <span>Requested by {approval.requestedBy?.displayName ?? "—"}</span>
         {approval.dueAt && (
-          <span className={dueSoon ? "text-danger font-medium" : ""}>Due {formatDate(approval.dueAt)}</span>
+          <span className={dueSoon ? "text-danger font-medium" : ""}>
+            Due {formatDate(approval.dueAt)}
+          </span>
         )}
       </div>
     </Card>
-  );
+  )
 }

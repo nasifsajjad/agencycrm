@@ -1,45 +1,47 @@
-import Link from "next/link";
-import { Plus, Search, Globe } from "lucide-react";
-import { db } from "@/lib/db";
-import { resolveWorkspace } from "@/lib/server";
-import { can } from "@/lib/auth";
-import { PageHeader, EmptyState, Forbidden } from "@/components/app/states";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { CompanyFormDialog } from "@/components/app/company-form";
-import { humanStatus, classForStatus } from "@/lib/format";
+import Link from "next/link"
+import { Plus, Search, Globe } from "lucide-react"
+import { db } from "@/lib/db"
+import { resolveWorkspace } from "@/lib/server"
+import { can } from "@/lib/auth"
+import { PageHeader, EmptyState, Forbidden } from "@/components/app/states"
+import { Card } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
+import { CompanyFormDialog } from "@/components/app/company-form"
+import { humanStatus, classForStatus } from "@/lib/format"
 
 export default async function CompaniesPage({
   params,
   searchParams,
 }: {
-  params: Promise<{ workspaceSlug: string }>;
-  searchParams: Promise<{ q?: string; new?: string }>;
+  params: Promise<{ workspaceSlug: string }>
+  searchParams: Promise<{ q?: string; new?: string }>
 }) {
-  const { workspaceSlug } = await params;
-  const { q, new: isNew } = await searchParams;
-  const ctx = await resolveWorkspace(workspaceSlug);
-  if (!can(ctx, "crm.read")) return <Forbidden />;
+  const { workspaceSlug } = await params
+  const { q, new: isNew } = await searchParams
+  const ctx = await resolveWorkspace(workspaceSlug)
+  if (!can(ctx, "crm.read")) return <Forbidden />
 
   const where = {
     workspaceId: ctx.workspaceId,
     archivedAt: null,
-    ...(q ? {
-      OR: [
-        { name: { contains: q } },
-        { domain: { contains: q } },
-        { industry: { contains: q } },
-      ],
-    } : {}),
-  };
+    ...(q
+      ? {
+          OR: [
+            { name: { contains: q } },
+            { domain: { contains: q } },
+            { industry: { contains: q } },
+          ],
+        }
+      : {}),
+  }
   const companies = await db.company.findMany({
     where,
     include: { _count: { select: { contacts: true, deals: true } } },
     orderBy: { updatedAt: "desc" },
     take: 100,
-  });
+  })
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
@@ -66,14 +68,22 @@ export default async function CompaniesPage({
             <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input name="q" defaultValue={q} placeholder="Search companies…" className="pl-8" />
           </div>
-          <button type="submit" className="sr-only">Search</button>
+          <button type="submit" className="sr-only">
+            Search
+          </button>
         </form>
       </div>
       {companies.length === 0 ? (
         <EmptyState
           title={q ? "No companies match your search" : "No companies yet"}
-          description={q ? "Try a different query." : "Add your first company to organize contacts and deals."}
-          action={!q && can(ctx, "crm.create") ? { label: "New company", href: `/w/${workspaceSlug}/crm/companies?new=1` } : undefined}
+          description={
+            q ? "Try a different query." : "Add your first company to organize contacts and deals."
+          }
+          action={
+            !q && can(ctx, "crm.create")
+              ? { label: "New company", href: `/w/${workspaceSlug}/crm/companies?new=1` }
+              : undefined
+          }
         />
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -82,13 +92,22 @@ export default async function CompaniesPage({
               <div className="flex items-start justify-between gap-2">
                 <Link href={`/w/${workspaceSlug}/crm/companies/${c.id}`} className="min-w-0 flex-1">
                   <div className="font-medium hover:underline">{c.name}</div>
-                  <div className="mt-0.5 text-xs text-muted-foreground truncate">{c.industry ?? "—"}</div>
+                  <div className="mt-0.5 text-xs text-muted-foreground truncate">
+                    {c.industry ?? "—"}
+                  </div>
                 </Link>
-                <Badge variant="outline" className={classForStatus(c.lifecycleStage)}>{humanStatus(c.lifecycleStage)}</Badge>
+                <Badge variant="outline" className={classForStatus(c.lifecycleStage)}>
+                  {humanStatus(c.lifecycleStage)}
+                </Badge>
               </div>
               <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
                 {c.website && (
-                  <a href={c.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:text-foreground">
+                  <a
+                    href={c.website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 hover:text-foreground"
+                  >
                     <Globe className="h-3 w-3" /> Website
                   </a>
                 )}
@@ -100,5 +119,5 @@ export default async function CompaniesPage({
         </div>
       )}
     </div>
-  );
+  )
 }

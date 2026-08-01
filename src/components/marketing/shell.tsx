@@ -1,7 +1,7 @@
-import Link from "next/link";
-import { ArrowRight, Sparkles } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import Link from "next/link"
+import { ArrowRight, Sparkles } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 
 export function MarketingHeader() {
   return (
@@ -14,12 +14,24 @@ export function MarketingHeader() {
           <span className="text-lg">AgencyOS</span>
         </Link>
         <nav className="hidden items-center gap-6 text-sm text-muted-foreground md:flex">
-          <Link href="/product" className="hover:text-foreground transition-colors">Product</Link>
-          <Link href="/features" className="hover:text-foreground transition-colors">Features</Link>
-          <Link href="/solutions/agencies" className="hover:text-foreground transition-colors">Solutions</Link>
-          <Link href="/pricing" className="hover:text-foreground transition-colors">Pricing</Link>
-          <Link href="/security" className="hover:text-foreground transition-colors">Security</Link>
-          <Link href="/docs" className="hover:text-foreground transition-colors">Docs</Link>
+          <Link href="/product" className="hover:text-foreground transition-colors">
+            Product
+          </Link>
+          <Link href="/features" className="hover:text-foreground transition-colors">
+            Features
+          </Link>
+          <Link href="/solutions/agencies" className="hover:text-foreground transition-colors">
+            Solutions
+          </Link>
+          <Link href="/pricing" className="hover:text-foreground transition-colors">
+            Pricing
+          </Link>
+          <Link href="/security" className="hover:text-foreground transition-colors">
+            Security
+          </Link>
+          <Link href="/docs" className="hover:text-foreground transition-colors">
+            Docs
+          </Link>
         </nav>
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" asChild className="hidden sm:inline-flex">
@@ -34,7 +46,7 @@ export function MarketingHeader() {
         </div>
       </div>
     </header>
-  );
+  )
 }
 
 export function MarketingFooter() {
@@ -49,8 +61,8 @@ export function MarketingFooter() {
             <span className="text-lg">AgencyOS</span>
           </Link>
           <p className="mt-3 max-w-sm text-sm text-muted-foreground">
-            The operating system for modern marketing agencies. Configurable, secure, and built for the
-            full lead-to-renewal lifecycle.
+            The operating system for modern marketing agencies. Configurable, secure, and built for
+            the full lead-to-renewal lifecycle.
           </p>
           <p className="mt-4 text-xs text-muted-foreground/70">
             © {new Date().getFullYear()} AgencyOS. Fictional brand for product demonstration.
@@ -85,7 +97,7 @@ export function MarketingFooter() {
         />
       </div>
     </footer>
-  );
+  )
 }
 
 function FooterCol({ title, links }: { title: string; links: { label: string; href: string }[] }) {
@@ -95,18 +107,23 @@ function FooterCol({ title, links }: { title: string; links: { label: string; hr
       <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
         {links.map((l) => (
           <li key={l.href}>
-            <Link href={l.href} className="hover:text-foreground transition-colors">{l.label}</Link>
+            <Link href={l.href} className="hover:text-foreground transition-colors">
+              {l.label}
+            </Link>
           </li>
         ))}
       </ul>
     </div>
-  );
+  )
 }
 
 export function MarketingBadge({ children }: { children: React.ReactNode }) {
   return (
-    <Badge variant="outline" className="border-border/60 bg-muted/40 px-3 py-1 text-xs font-medium text-muted-foreground">
+    <Badge
+      variant="outline"
+      className="border-border/60 bg-muted/40 px-3 py-1 text-xs font-medium text-muted-foreground"
+    >
       {children}
     </Badge>
-  );
+  )
 }

@@ -1,47 +1,53 @@
-"use client";
+"use client"
 
-import * as React from "react";
-import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
-import { createNoteAction } from "@/lib/crm-actions";
-import { toast } from "sonner";
+import * as React from "react"
+import { useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
+import { createNoteAction } from "@/lib/crm-actions"
+import { toast } from "sonner"
 
 export function NoteComposer({
   workspaceSlug,
   entityType,
   entityId,
 }: {
-  workspaceSlug: string;
-  entityType: string;
-  entityId: string;
+  workspaceSlug: string
+  entityType: string
+  entityId: string
 }) {
-  const [body, setBody] = React.useState("");
-  const [visibility, setVisibility] = React.useState("internal");
-  const [pending, setPending] = React.useState(false);
-  const router = useRouter();
+  const [body, setBody] = React.useState("")
+  const [visibility, setVisibility] = React.useState("internal")
+  const [pending, setPending] = React.useState(false)
+  const router = useRouter()
 
   async function onSubmit() {
-    if (!body.trim()) return;
-    setPending(true);
+    if (!body.trim()) return
+    setPending(true)
     try {
-      const fd = new FormData();
-      fd.set("bodyRich", body);
-      fd.set("entityType", entityType);
-      fd.set("entityId", entityId);
-      fd.set("visibility", visibility);
-      const res = await createNoteAction(workspaceSlug, fd);
+      const fd = new FormData()
+      fd.set("bodyRich", body)
+      fd.set("entityType", entityType)
+      fd.set("entityId", entityId)
+      fd.set("visibility", visibility)
+      const res = await createNoteAction(workspaceSlug, fd)
       if (res?.error) {
-        toast.error(res.error);
-        return;
+        toast.error(res.error)
+        return
       }
-      toast.success("Note added");
-      setBody("");
-      router.refresh();
+      toast.success("Note added")
+      setBody("")
+      router.refresh()
     } finally {
-      setPending(false);
+      setPending(false)
     }
   }
 
@@ -71,5 +77,5 @@ export function NoteComposer({
         </Button>
       </div>
     </div>
-  );
+  )
 }

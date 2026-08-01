@@ -1,7 +1,7 @@
-import { AuthCard } from "@/components/auth/auth-form";
-import { ForgotPasswordForm } from "@/components/auth/auth-form";
+import { AuthCard } from "@/components/auth/auth-form"
+import { ForgotPasswordForm } from "@/components/auth/auth-form"
 
-export const metadata = { title: "Forgot password" };
+export const metadata = { title: "Forgot password" }
 
 export default function ForgotPasswordPage() {
   return (
@@ -14,5 +14,5 @@ export default function ForgotPasswordPage() {
     >
       <ForgotPasswordForm />
     </AuthCard>
-  );
+  )
 }

@@ -1,11 +1,11 @@
-import { redirect } from "next/navigation";
-import { getCurrentUser, getUserMemberships } from "@/lib/auth";
-import { OnboardingForm } from "@/components/onboarding/onboarding-form";
+import { redirect } from "next/navigation"
+import { getCurrentUser, getUserMemberships } from "@/lib/auth"
+import { OnboardingForm } from "@/components/onboarding/onboarding-form"
 
 export default async function OnboardingPage() {
-  const user = await getCurrentUser();
-  if (!user) redirect("/sign-in?next=/onboarding");
-  const memberships = await getUserMemberships(user.id);
+  const user = await getCurrentUser()
+  if (!user) redirect("/sign-in?next=/onboarding")
+  const memberships = await getUserMemberships(user.id)
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center px-4 py-12">
       <div className="absolute inset-0 grid-pattern opacity-40" />
@@ -23,5 +23,5 @@ export default async function OnboardingPage() {
         />
       </div>
     </div>
-  );
+  )
 }

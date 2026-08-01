@@ -1,15 +1,23 @@
-"use client";
+"use client"
 
-import * as React from "react";
-import { useRouter } from "next/navigation";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { createProjectAction } from "@/lib/crm-actions";
-import { toast } from "sonner";
+import * as React from "react"
+import { useRouter } from "next/navigation"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { createProjectAction } from "@/lib/crm-actions"
+import { toast } from "sonner"
 
 export function ProjectFormDialog({
   workspaceSlug,
@@ -18,33 +26,33 @@ export function ProjectFormDialog({
   trigger,
   defaultOpen,
 }: {
-  workspaceSlug: string;
-  clients: { id: string; name: string }[];
-  statuses: { id: string; name: string; category: string }[];
-  trigger: React.ReactNode;
-  defaultOpen?: boolean;
+  workspaceSlug: string
+  clients: { id: string; name: string }[]
+  statuses: { id: string; name: string; category: string }[]
+  trigger: React.ReactNode
+  defaultOpen?: boolean
 }) {
-  const [open, setOpen] = React.useState(defaultOpen ?? false);
-  const [error, setError] = React.useState<string | null>(null);
-  const [pending, setPending] = React.useState(false);
-  const router = useRouter();
+  const [open, setOpen] = React.useState(defaultOpen ?? false)
+  const [error, setError] = React.useState<string | null>(null)
+  const [pending, setPending] = React.useState(false)
+  const router = useRouter()
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setError(null);
-    setPending(true);
+    e.preventDefault()
+    setError(null)
+    setPending(true)
     try {
-      const res = await createProjectAction(workspaceSlug, new FormData(e.currentTarget));
+      const res = await createProjectAction(workspaceSlug, new FormData(e.currentTarget))
       if (res?.error) {
-        setError(res.error);
-        return;
+        setError(res.error)
+        return
       }
-      toast.success("Project created");
-      setOpen(false);
-      router.refresh();
-      (e.target as HTMLFormElement).reset();
+      toast.success("Project created")
+      setOpen(false)
+      router.refresh()
+      ;(e.target as HTMLFormElement).reset()
     } finally {
-      setPending(false);
+      setPending(false)
     }
   }
 
@@ -67,10 +75,16 @@ export function ProjectFormDialog({
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="clientId">Client</Label>
-              <select id="clientId" name="clientId" className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm">
+              <select
+                id="clientId"
+                name="clientId"
+                className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+              >
                 <option value="">— None —</option>
                 {clients.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
                 ))}
               </select>
             </div>
@@ -96,12 +110,16 @@ export function ProjectFormDialog({
           )}
           <DialogFooter>
             <DialogClose asChild>
-              <Button type="button" variant="outline">Cancel</Button>
+              <Button type="button" variant="outline">
+                Cancel
+              </Button>
             </DialogClose>
-            <Button type="submit" disabled={pending}>{pending ? "Creating…" : "Create project"}</Button>
+            <Button type="submit" disabled={pending}>
+              {pending ? "Creating…" : "Create project"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
-  );
+  )
 }

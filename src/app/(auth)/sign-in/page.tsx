@@ -1,6 +1,7 @@
-import { AuthCard, AuthForm } from "@/components/auth/auth-form";
+import { Suspense } from "react"
+import { AuthCard, AuthForm } from "@/components/auth/auth-form"
 
-export const metadata = { title: "Sign in" };
+export const metadata = { title: "Sign in" }
 
 export default function SignInPage() {
   return (
@@ -11,7 +12,11 @@ export default function SignInPage() {
       footerHref="/sign-up"
       footerLabel="Sign up"
     >
-      <AuthForm mode="sign-in" />
+      <Suspense
+        fallback={<div className="py-4 text-center text-sm text-muted-foreground">Loading…</div>}
+      >
+        <AuthForm mode="sign-in" />
+      </Suspense>
     </AuthCard>
-  );
+  )
 }

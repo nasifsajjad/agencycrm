@@ -1,32 +1,40 @@
-import Link from "next/link";
-import { db } from "@/lib/db";
-import { resolveWorkspace } from "@/lib/server";
-import { can } from "@/lib/auth";
-import { PageHeader, EmptyState, Forbidden } from "@/components/app/states";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { humanStatus, classForStatus, formatDate, formatMoney } from "@/lib/format";
+import Link from "next/link"
+import { db } from "@/lib/db"
+import { resolveWorkspace } from "@/lib/server"
+import { can } from "@/lib/auth"
+import { PageHeader, EmptyState, Forbidden } from "@/components/app/states"
+import { Card } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { humanStatus, classForStatus, formatDate, formatMoney } from "@/lib/format"
 
 export default async function CampaignsPage({
   params,
 }: {
-  params: Promise<{ workspaceSlug: string }>;
+  params: Promise<{ workspaceSlug: string }>
 }) {
-  const { workspaceSlug } = await params;
-  const ctx = await resolveWorkspace(workspaceSlug);
-  if (!can(ctx, "campaigns.read")) return <Forbidden />;
+  const { workspaceSlug } = await params
+  const ctx = await resolveWorkspace(workspaceSlug)
+  if (!can(ctx, "campaigns.read")) return <Forbidden />
 
   const campaigns = await db.campaign.findMany({
     where: { workspaceId: ctx.workspaceId },
-    include: { client: true, project: true, owner: true, _count: { select: { deliverables: true, contentItems: true } } },
+    include: {
+      client: true,
+      project: true,
+      owner: true,
+      _count: { select: { deliverables: true, contentItems: true } },
+    },
     orderBy: { updatedAt: "desc" },
-  });
+  })
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
       <PageHeader title="Campaigns" description={`${campaigns.length} campaigns`} />
       {campaigns.length === 0 ? (
-        <EmptyState title="No campaigns yet" description="Campaigns group deliverables and content across a channel." />
+        <EmptyState
+          title="No campaigns yet"
+          description="Campaigns group deliverables and content across a channel."
+        />
       ) : (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
           {campaigns.map((c) => (
@@ -38,13 +46,19 @@ export default async function CampaignsPage({
                     {c.client?.name ?? "—"} · {c.channel ?? "—"}
                   </div>
                 </div>
-                <Badge variant="outline" className={classForStatus(c.status)}>{humanStatus(c.status)}</Badge>
+                <Badge variant="outline" className={classForStatus(c.status)}>
+                  {humanStatus(c.status)}
+                </Badge>
               </div>
-              {c.objective && <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{c.objective}</p>}
+              {c.objective && (
+                <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{c.objective}</p>
+              )}
               <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
                 <div>
                   <div className="text-muted-foreground">Budget</div>
-                  <div className="tabular-nums font-medium">{c.budgetMinor > 0 ? formatMoney(c.budgetMinor) : "—"}</div>
+                  <div className="tabular-nums font-medium">
+                    {c.budgetMinor > 0 ? formatMoney(c.budgetMinor) : "—"}
+                  </div>
                 </div>
                 <div>
                   <div className="text-muted-foreground">Deliverables</div>
@@ -67,5 +81,5 @@ export default async function CampaignsPage({
         </div>
       )}
     </div>
-  );
+  )
 }

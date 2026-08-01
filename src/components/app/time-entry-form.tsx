@@ -1,46 +1,59 @@
-"use client";
+"use client"
 
-import * as React from "react";
-import { useRouter } from "next/navigation";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { createTimeEntryAction } from "@/lib/crm-actions";
-import { toast } from "sonner";
+import * as React from "react"
+import { useRouter } from "next/navigation"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { createTimeEntryAction } from "@/lib/crm-actions"
+import { toast } from "sonner"
 
 export function TimeEntryFormDialog({
   workspaceSlug,
   projects,
   trigger,
 }: {
-  workspaceSlug: string;
-  projects: { id: string; name: string; clientId?: string | null; client?: { name: string } | null }[];
-  trigger: React.ReactNode;
+  workspaceSlug: string
+  projects: {
+    id: string
+    name: string
+    clientId?: string | null
+    client?: { name: string } | null
+  }[]
+  trigger: React.ReactNode
 }) {
-  const [open, setOpen] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
-  const [pending, setPending] = React.useState(false);
-  const router = useRouter();
+  const [open, setOpen] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
+  const [pending, setPending] = React.useState(false)
+  const router = useRouter()
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setError(null);
-    setPending(true);
+    e.preventDefault()
+    setError(null)
+    setPending(true)
     try {
-      const res = await createTimeEntryAction(workspaceSlug, new FormData(e.currentTarget));
+      const res = await createTimeEntryAction(workspaceSlug, new FormData(e.currentTarget))
       if (res?.error) {
-        setError(res.error);
-        return;
+        setError(res.error)
+        return
       }
-      toast.success("Time entry created");
-      setOpen(false);
-      router.refresh();
-      (e.target as HTMLFormElement).reset();
+      toast.success("Time entry created")
+      setOpen(false)
+      router.refresh()
+      ;(e.target as HTMLFormElement).reset()
     } finally {
-      setPending(false);
+      setPending(false)
     }
   }
 
@@ -59,10 +72,16 @@ export function TimeEntryFormDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="projectId">Project</Label>
-              <select id="projectId" name="projectId" className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm">
+              <select
+                id="projectId"
+                name="projectId"
+                className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+              >
                 <option value="">— None —</option>
                 {projects.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
                 ))}
               </select>
             </div>
@@ -83,7 +102,13 @@ export function TimeEntryFormDialog({
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <input id="billable" name="billable" type="checkbox" defaultChecked className="rounded" />
+            <input
+              id="billable"
+              name="billable"
+              type="checkbox"
+              defaultChecked
+              className="rounded"
+            />
             <Label htmlFor="billable">Billable</Label>
           </div>
           {error && (
@@ -93,12 +118,16 @@ export function TimeEntryFormDialog({
           )}
           <DialogFooter>
             <DialogClose asChild>
-              <Button type="button" variant="outline">Cancel</Button>
+              <Button type="button" variant="outline">
+                Cancel
+              </Button>
             </DialogClose>
-            <Button type="submit" disabled={pending}>{pending ? "Saving…" : "Log time"}</Button>
+            <Button type="submit" disabled={pending}>
+              {pending ? "Saving…" : "Log time"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
-  );
+  )
 }

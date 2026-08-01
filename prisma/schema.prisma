@@ -45,8 +45,11 @@ model User {
   ownedProjects   Project[]
   ownedTasks      Task[]             @relation("TaskOwner")
   assignedTasks   Task[]             @relation("TaskAssignee")
+  ownedCampaigns  Campaign[]         @relation("CampaignOwner")
+  ownedDeliverables Deliverable[]    @relation("DeliverableOwner")
   approvalsRequested ApprovalRequest[]
   approvalsDecided   ApprovalStep[]
+  approvalEvents      ApprovalEvent[] @relation("ApprovalEventActor")
   invitationsSent     Invitation[]
 }
 
@@ -121,6 +124,7 @@ model Workspace {
   reportDefinitions ReportDefinition[]
   automations   Automation[]
   webhookEndpoints WebhookEndpoint[]
+  outboxEvents   OutboxEvent[]
   integrationConnections IntegrationConnection[]
   importJobs    ImportJob[]
   exportJobs    ExportJob[]
@@ -143,6 +147,7 @@ model WorkspaceMembership {
 
   roles        MembershipRole[]
   teamMemberships TeamMembership[]
+  projectMemberships ProjectMember[]
 
   @@unique([workspaceId, userId])
   @@index([userId])
@@ -348,6 +353,7 @@ model Contact {
   deals           Deal[]
   clientContacts  ClientContact[]
   activities      Activity[]
+  portals         ClientPortal[]
 
   @@index([workspaceId, email])
   @@index([workspaceId, ownerId])
@@ -524,6 +530,7 @@ model Client {
   estimates        Estimate[]
   invoices         Invoice[]
   portals          ClientPortal[]
+  timeEntries      TimeEntry[]
 
   @@index([workspaceId, status])
   @@index([workspaceId, ownerId])
@@ -665,12 +672,13 @@ model Project {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  members       ProjectMember[]
-  milestones    Milestone[]
+  deliverables  Deliverable[]
   tasks         Task[]
   campaigns     Campaign[]
-  deliverables  Deliverable[]
   timeEntries   TimeEntry[]
+  expenses      Expense[]
+  milestones    Milestone[]
+  members       ProjectMember[]
 
   @@index([workspaceId, clientId])
   @@index([workspaceId, ownerId])
@@ -695,6 +703,7 @@ model ProjectMember {
   projectId     String
   project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   membershipId String
+  membership   WorkspaceMembership  @relation(fields: [membershipId], references: [id], onDelete: Cascade)
   accessLevel  String   @default("viewer") // viewer | editor | manager
 
   @@unique([projectId, membershipId])
@@ -796,6 +805,7 @@ model Campaign {
   budgetMinor  BigInt   @default(0)
   currency     String   @default("USD")
   ownerId      String?
+  owner        User?    @relation("CampaignOwner", fields: [ownerId], references: [id])
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -821,6 +831,7 @@ model Deliverable {
   status           String   @default("draft")
   dueAt            DateTime?
   ownerId          String?
+  owner            User?    @relation("DeliverableOwner", fields: [ownerId], references: [id])
   currentVersionId String?
   visibility       String   @default("internal")
   createdAt        DateTime @default(now())
@@ -985,6 +996,19 @@ model ApprovalRequest {
   @@index([workspaceId, status])
 }
 
+model ApprovalEvent {
+  id              String   @id @default(cuid())
+  approvalRequestId String
+  approvalRequest ApprovalRequest @relation(fields: [approvalRequestId], references: [id], onDelete: Cascade)
+  actorUserId     String?
+  actorUser       User?    @relation("ApprovalEventActor", fields: [actorUserId], references: [id])
+  action          String   // requested | approved | changes_requested | cancelled | reopened
+  note            String?
+  occurredAt      DateTime @default(now())
+
+  @@index([approvalRequestId, occurredAt])
+}
+
 model ApprovalStep {
   id              String   @id @default(cuid())
   approvalRequestId String
@@ -1001,18 +1025,6 @@ model ApprovalStep {
   @@index([approvalRequestId])
 }
 
-model ApprovalEvent {
-  id              String   @id @default(cuid())
-  approvalRequestId String
-  approvalRequest ApprovalRequest @relation(fields: [approvalRequestId], references: [id], onDelete: Cascade)
-  actorUserId     String?
-  action          String   // requested | approved | changes_requested | cancelled | reopened
-  note            String?
-  occurredAt      DateTime @default(now())
-
-  @@index([approvalRequestId, occurredAt])
-}
-
 // ---------------------------------------------------------------------------
 // Time, capacity, finance
 // ---------------------------------------------------------------------------
@@ -1026,6 +1038,7 @@ model TimeEntry {
   taskId       String?
   task         Task?    @relation(fields: [taskId], references: [id])
   clientId     String?
+  client       Client?  @relation(fields: [clientId], references: [id])
   userId       String
   user         User     @relation(fields: [userId], references: [id])
   startedAt    DateTime
@@ -1095,6 +1108,7 @@ model Expense {
   clientId     String?
   client       Client?  @relation(fields: [clientId], references: [id])
   projectId    String?
+  project      Project? @relation(fields: [projectId], references: [id])
   category     String
   amountMinor  BigInt   @default(0)
   currency     String   @default("USD")
@@ -1355,6 +1369,23 @@ model WebhookDelivery {
   responseCode Int?
 }
 
+model OutboxEvent {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  eventType    String
+  entityType   String
+  entityId     String?
+  actorUserId  String?
+  payload      Json
+  createdAt    DateTime @default(now())
+  processedAt  DateTime?
+  attempts     Int      @default(0)
+  nextAttemptAt DateTime @default(now())
+
+  @@index([processedAt, nextAttemptAt])
+}
+
 model IntegrationConnection {
   id           String   @id @default(cuid())
   workspaceId  String
@@ -1408,6 +1439,7 @@ model ClientPortal {
   client       Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
   slug         String   @unique
   contactId    String?
+  contact      Contact? @relation(fields: [contactId], references: [id])
   brandColor   String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt

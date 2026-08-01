@@ -1,22 +1,22 @@
-import Link from "next/link";
-import { db } from "@/lib/db";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { ArrowRight, FolderKanban, FileCheck2, FileText } from "lucide-react";
-import { humanStatus, classForStatus, formatDate, relativeTime } from "@/lib/format";
+import Link from "next/link"
+import { db } from "@/lib/db"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { ArrowRight, FolderKanban, FileCheck2, FileText } from "lucide-react"
+import { humanStatus, classForStatus, formatDate, relativeTime } from "@/lib/format"
 
 export default async function PortalHomePage({
   params,
 }: {
-  params: Promise<{ portalSlug: string }>;
+  params: Promise<{ portalSlug: string }>
 }) {
-  const { portalSlug } = await params;
+  const { portalSlug } = await params
   const portal = await db.clientPortal.findUnique({
     where: { slug: portalSlug },
     include: { client: true, workspace: true },
-  });
-  if (!portal) return null;
+  })
+  if (!portal) return null
 
   const [projects, pendingApprovals, recentRequests] = await Promise.all([
     db.project.findMany({
@@ -40,21 +40,26 @@ export default async function PortalHomePage({
       orderBy: { createdAt: "desc" },
       take: 5,
     }),
-  ]);
+  ])
 
   // Filter approvals to those whose deliverable belongs to this client
-  const deliverableIds = (await db.deliverable.findMany({
-    where: { workspaceId: portal.workspaceId, clientId: portal.clientId },
-    select: { id: true },
-  })).map((d) => d.id);
-  const clientApprovals = pendingApprovals.filter((a) => a.entityType === "deliverable" && deliverableIds.includes(a.entityId));
+  const deliverableIds = (
+    await db.deliverable.findMany({
+      where: { workspaceId: portal.workspaceId, clientId: portal.clientId },
+      select: { id: true },
+    })
+  ).map((d) => d.id)
+  const clientApprovals = pendingApprovals.filter(
+    (a) => a.entityType === "deliverable" && deliverableIds.includes(a.entityId)
+  )
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Welcome, {portal.client.name}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          A shared view of your work with {portal.workspace.name}. You only see records explicitly shared with you.
+          A shared view of your work with {portal.workspace.name}. You only see records explicitly
+          shared with you.
         </p>
       </div>
 
@@ -100,7 +105,11 @@ export default async function PortalHomePage({
                   <div className="text-sm font-medium">{p.name}</div>
                   <div className="text-xs text-muted-foreground">{p.owner?.displayName ?? "—"}</div>
                 </div>
-                {p.status && <Badge variant="outline" className={classForStatus(p.status.category)}>{p.status.name}</Badge>}
+                {p.status && (
+                  <Badge variant="outline" className={classForStatus(p.status.category)}>
+                    {p.status.name}
+                  </Badge>
+                )}
               </Link>
             ))
           )}
@@ -123,14 +132,19 @@ export default async function PortalHomePage({
               >
                 <div>
                   <div className="text-sm font-medium">{a.title}</div>
-                  <div className="text-xs text-muted-foreground">Requested {relativeTime(a.createdAt)}{a.dueAt && ` · Due ${formatDate(a.dueAt)}`}</div>
+                  <div className="text-xs text-muted-foreground">
+                    Requested {relativeTime(a.createdAt)}
+                    {a.dueAt && ` · Due ${formatDate(a.dueAt)}`}
+                  </div>
                 </div>
-                <Button size="sm" variant="outline">Review <ArrowRight className="ml-1 h-3 w-3" /></Button>
+                <Button size="sm" variant="outline">
+                  Review <ArrowRight className="ml-1 h-3 w-3" />
+                </Button>
               </Link>
             ))
           )}
         </CardContent>
       </Card>
     </div>
-  );
+  )
 }

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "next/link"
 import {
   ArrowRight,
   ArrowUpRight,
@@ -18,11 +18,11 @@ import {
   Globe,
   Workflow,
   Lock,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { MarketingBadge } from "@/components/marketing/shell";
+} from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { MarketingBadge } from "@/components/marketing/shell"
 
 export default function HomePage() {
   return (
@@ -36,7 +36,7 @@ export default function HomePage() {
       <PricingCTA />
       <FAQ />
     </>
-  );
+  )
 }
 
 function Hero() {
@@ -80,7 +80,7 @@ function Hero() {
         <HeroPreview />
       </div>
     </section>
-  );
+  )
 }
 
 function HeroPreview() {
@@ -117,7 +117,9 @@ function HeroPreview() {
                 <div
                   key={item.label}
                   className={`flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm ${
-                    item.active ? "bg-foreground/5 font-medium text-foreground" : "text-muted-foreground"
+                    item.active
+                      ? "bg-foreground/5 font-medium text-foreground"
+                      : "text-muted-foreground"
                   }`}
                 >
                   <item.icon className="h-4 w-4" />
@@ -130,7 +132,9 @@ function HeroPreview() {
             <div className="border-b border-border/60 px-6 py-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-xs uppercase tracking-wider text-muted-foreground">Dashboard</div>
+                  <div className="text-xs uppercase tracking-wider text-muted-foreground">
+                    Dashboard
+                  </div>
                   <div className="text-lg font-semibold">Northstar Growth Studio</div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -194,16 +198,25 @@ function HeroPreview() {
                 </CardHeader>
                 <CardContent className="space-y-2.5 text-xs">
                   {[
-                    { name: "Q3 brand campaign — final assets", client: "Aurora Skincare", age: "2d" },
+                    {
+                      name: "Q3 brand campaign — final assets",
+                      client: "Aurora Skincare",
+                      age: "2d",
+                    },
                     { name: "Landing page redesign v2", client: "Helix Health", age: "5h" },
                     { name: "Email sequence — Series B", client: "Northpoint SaaS", age: "1d" },
                   ].map((a) => (
-                    <div key={a.name} className="flex items-center justify-between rounded-md border border-border/40 px-2.5 py-1.5">
+                    <div
+                      key={a.name}
+                      className="flex items-center justify-between rounded-md border border-border/40 px-2.5 py-1.5"
+                    >
                       <div className="min-w-0">
                         <div className="truncate font-medium">{a.name}</div>
                         <div className="text-muted-foreground">{a.client}</div>
                       </div>
-                      <Badge variant="outline" className="text-amber-700 dark:text-amber-400">{a.age}</Badge>
+                      <Badge variant="outline" className="text-amber-700 dark:text-amber-400">
+                        {a.age}
+                      </Badge>
                     </div>
                   ))}
                 </CardContent>
@@ -213,7 +226,7 @@ function HeroPreview() {
         </div>
       </div>
     </div>
-  );
+  )
 }
 
 function WorkflowStory() {
@@ -226,7 +239,7 @@ function WorkflowStory() {
     { label: "Report", desc: "Role-aware dashboards and reports.", icon: BarChart3 },
     { label: "Invoice", desc: "Recognize revenue, bill retainers, invoice.", icon: DollarSign },
     { label: "Renew", desc: "Health, renewal dates, QBR prep.", icon: ShieldCheck },
-  ];
+  ]
   return (
     <section className="border-b border-border/60 bg-muted/20 py-20">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -236,8 +249,8 @@ function WorkflowStory() {
             One workspace, the whole arc
           </h2>
           <p className="mt-4 text-muted-foreground">
-            Stop stitching together separate tools for CRM, projects, time, and finance. AgencyOS connects
-            every contact, decision, hour, and dollar in one coherent data graph.
+            Stop stitching together separate tools for CRM, projects, time, and finance. AgencyOS
+            connects every contact, decision, hour, and dollar in one coherent data graph.
           </p>
         </div>
         <div className="mt-12 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -262,7 +275,7 @@ function WorkflowStory() {
         </div>
       </div>
     </section>
-  );
+  )
 }
 
 function CapabilityGrid() {
@@ -312,7 +325,7 @@ function CapabilityGrid() {
       desc: "Permission-aware search across every entity with a keyboard-first command palette.",
       icon: Search,
     },
-  ];
+  ]
   return (
     <section className="py-20">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -322,8 +335,8 @@ function CapabilityGrid() {
             Built for the realities of agency work
           </h2>
           <p className="mt-4 text-muted-foreground">
-            Every module is deep enough to run a real agency on, yet configurable enough to feel custom-built
-            for yours.
+            Every module is deep enough to run a real agency on, yet configurable enough to feel
+            custom-built for yours.
           </p>
         </div>
         <div className="mt-12 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -343,7 +356,7 @@ function CapabilityGrid() {
         </div>
       </div>
     </section>
-  );
+  )
 }
 
 function RoleBenefits() {
@@ -378,7 +391,7 @@ function RoleBenefits() {
       desc: "Retainers, rates, costs, invoices, and exports — all in one place.",
       points: ["Margin reporting", "Invoice builder", "Audit-ready exports"],
     },
-  ];
+  ]
   return (
     <section className="border-y border-border/60 bg-muted/20 py-20">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -388,7 +401,8 @@ function RoleBenefits() {
             Role-aware by design
           </h2>
           <p className="mt-4 text-muted-foreground">
-            Progressive disclosure means each person sees what they need — and nothing they shouldn&apos;t.
+            Progressive disclosure means each person sees what they need — and nothing they
+            shouldn&apos;t.
           </p>
         </div>
         <div className="mt-12 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -413,7 +427,7 @@ function RoleBenefits() {
         </div>
       </div>
     </section>
-  );
+  )
 }
 
 function SecuritySection() {
@@ -438,7 +452,7 @@ function SecuritySection() {
       desc: "Portal users see only explicitly shared records — never inherited from workspace membership.",
       icon: Globe,
     },
-  ];
+  ]
   return (
     <section className="py-20">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -449,12 +463,22 @@ function SecuritySection() {
               Built like infrastructure, not a side project
             </h2>
             <p className="mt-4 text-muted-foreground">
-              AgencyOS treats security as a first-class concern. Tenant isolation is enforced at the database
-              layer, permissions are checked server-side on every mutation, and audit events are append-only.
+              AgencyOS treats security as a first-class concern. Tenant isolation is enforced at the
+              database layer, permissions are checked server-side on every mutation, and audit
+              events are append-only.
             </p>
             <div className="mt-6 flex flex-wrap gap-2">
-              {["SOC 2-aligned", "RLS-enforced", "SSO-ready", "GDPR-friendly", "Audit log", "Encrypted secrets"].map((t) => (
-                <Badge key={t} variant="outline">{t}</Badge>
+              {[
+                "SOC 2-aligned",
+                "RLS-enforced",
+                "SSO-ready",
+                "GDPR-friendly",
+                "Audit log",
+                "Encrypted secrets",
+              ].map((t) => (
+                <Badge key={t} variant="outline">
+                  {t}
+                </Badge>
               ))}
             </div>
             <Button variant="outline" className="mt-6" asChild>
@@ -480,7 +504,7 @@ function SecuritySection() {
         </div>
       </div>
     </section>
-  );
+  )
 }
 
 function Testimonials() {
@@ -506,7 +530,7 @@ function Testimonials() {
       title: "Head of Ops, Lumen Performance (demo)",
       tag: "Demo testimonial",
     },
-  ];
+  ]
   return (
     <section className="border-y border-border/60 bg-muted/20 py-20">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -523,11 +547,16 @@ function Testimonials() {
           {items.map((t) => (
             <Card key={t.name}>
               <CardContent>
-                <Badge variant="outline" className="mb-4 text-xs text-muted-foreground">{t.tag}</Badge>
+                <Badge variant="outline" className="mb-4 text-xs text-muted-foreground">
+                  {t.tag}
+                </Badge>
                 <blockquote className="text-sm leading-relaxed">&ldquo;{t.quote}&rdquo;</blockquote>
                 <div className="mt-6 flex items-center gap-3">
                   <div className="grid h-9 w-9 place-items-center rounded-full bg-foreground/5 text-xs font-medium">
-                    {t.name.split(" ").map((p) => p[0]).join("")}
+                    {t.name
+                      .split(" ")
+                      .map((p) => p[0])
+                      .join("")}
                   </div>
                   <div>
                     <div className="text-sm font-medium">{t.name}</div>
@@ -540,7 +569,7 @@ function Testimonials() {
         </div>
       </div>
     </section>
-  );
+  )
 }
 
 function PricingCTA() {
@@ -554,7 +583,12 @@ function PricingCTA() {
               price: "$0",
               cadence: "free for 5 seats",
               desc: "For new agencies getting organized.",
-              features: ["CRM & pipelines", "Projects & tasks", "Time tracking", "Client portal (1 brand)"],
+              features: [
+                "CRM & pipelines",
+                "Projects & tasks",
+                "Time tracking",
+                "Client portal (1 brand)",
+              ],
               cta: "Start free",
               highlight: false,
             },
@@ -563,7 +597,14 @@ function PricingCTA() {
               price: "$29",
               cadence: "per seat / month",
               desc: "For agencies scaling delivery.",
-              features: ["Everything in Starter", "Approvals & proofing", "Retainers & finance", "Automations", "Custom fields & dashboards", "Unlimited portal brands"],
+              features: [
+                "Everything in Starter",
+                "Approvals & proofing",
+                "Retainers & finance",
+                "Automations",
+                "Custom fields & dashboards",
+                "Unlimited portal brands",
+              ],
               cta: "Start free",
               highlight: true,
             },
@@ -572,7 +613,14 @@ function PricingCTA() {
               price: "Custom",
               cadence: "annual",
               desc: "For multi-brand & enterprise.",
-              features: ["Everything in Growth", "SSO / SAML", "SCIM provisioning", "Custom domains", "Audit log export", "Priority support"],
+              features: [
+                "Everything in Growth",
+                "SSO / SAML",
+                "SCIM provisioning",
+                "Custom domains",
+                "Audit log export",
+                "Priority support",
+              ],
               cta: "Talk to us",
               highlight: false,
             },
@@ -610,12 +658,16 @@ function PricingCTA() {
           ))}
         </div>
         <p className="mt-6 text-center text-xs text-muted-foreground">
-          Prices shown are illustrative for product demonstration. All plans include the security model described in the{" "}
-          <Link href="/security" className="underline">security overview</Link>.
+          Prices shown are illustrative for product demonstration. All plans include the security
+          model described in the{" "}
+          <Link href="/security" className="underline">
+            security overview
+          </Link>
+          .
         </p>
       </div>
     </section>
-  );
+  )
 }
 
 function FAQ() {
@@ -644,13 +696,15 @@ function FAQ() {
       q: "Can I export my data?",
       a: "Yes. Permission-aware CSV exports respect current filters and field-level sensitivity. Every export is recorded in the audit log.",
     },
-  ];
+  ]
   return (
     <section className="border-t border-border/60 bg-muted/20 py-20">
       <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
         <div className="text-center">
           <MarketingBadge>FAQ</MarketingBadge>
-          <h2 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">Common questions</h2>
+          <h2 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">
+            Common questions
+          </h2>
         </div>
         <div className="mt-12 space-y-3">
           {faqs.map((f) => (
@@ -666,5 +720,5 @@ function FAQ() {
         </div>
       </div>
     </section>
-  );
+  )
 }

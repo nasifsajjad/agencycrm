@@ -1,27 +1,34 @@
-import Link from "next/link";
-import { notFound } from "next/navigation";
-import { db } from "@/lib/db";
-import { resolveWorkspace } from "@/lib/server";
-import { can } from "@/lib/auth";
-import { PageHeader, Forbidden } from "@/components/app/states";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Plus } from "lucide-react";
-import { humanStatus, classForStatus, formatDate, formatMoney, initials, relativeTime } from "@/lib/format";
-import { TaskFormDialog } from "@/components/app/task-form";
-import { TasksBoard } from "@/components/app/tasks-board";
+import Link from "next/link"
+import { notFound } from "next/navigation"
+import { db } from "@/lib/db"
+import { resolveWorkspace } from "@/lib/server"
+import { can } from "@/lib/auth"
+import { PageHeader, Forbidden } from "@/components/app/states"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { ArrowLeft, Plus } from "lucide-react"
+import {
+  humanStatus,
+  classForStatus,
+  formatDate,
+  formatMoney,
+  initials,
+  relativeTime,
+} from "@/lib/format"
+import { TaskFormDialog } from "@/components/app/task-form"
+import { TasksBoard } from "@/components/app/tasks-board"
 
 export default async function ProjectDetailPage({
   params,
 }: {
-  params: Promise<{ workspaceSlug: string; projectId: string }>;
+  params: Promise<{ workspaceSlug: string; projectId: string }>
 }) {
-  const { workspaceSlug, projectId } = await params;
-  const ctx = await resolveWorkspace(workspaceSlug);
-  if (!can(ctx, "projects.read")) return <Forbidden />;
+  const { workspaceSlug, projectId } = await params
+  const ctx = await resolveWorkspace(workspaceSlug)
+  if (!can(ctx, "projects.read")) return <Forbidden />
 
   const project = await db.project.findFirst({
     where: { id: projectId, workspaceId: ctx.workspaceId },
@@ -38,11 +45,14 @@ export default async function ProjectDetailPage({
       timeEntries: { include: { user: true }, orderBy: { startedAt: "desc" }, take: 10 },
       _count: { select: { deliverables: true, campaigns: true } },
     },
-  });
-  if (!project) notFound();
+  })
+  if (!project) notFound()
 
   const [statuses, members, otherProjects] = await Promise.all([
-    db.taskStatus.findMany({ where: { workspaceId: ctx.workspaceId }, orderBy: { position: "asc" } }),
+    db.taskStatus.findMany({
+      where: { workspaceId: ctx.workspaceId },
+      orderBy: { position: "asc" },
+    }),
     db.workspaceMembership.findMany({
       where: { workspaceId: ctx.workspaceId, status: "active" },
       include: { user: true },
@@ -52,13 +62,16 @@ export default async function ProjectDetailPage({
       select: { id: true, name: true, code: true },
       take: 5,
     }),
-  ]);
+  ])
 
-  const loggedMinutes = project.timeEntries.reduce((s, t) => s + t.minutes, 0);
+  const loggedMinutes = project.timeEntries.reduce((s, t) => s + t.minutes, 0)
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-      <Link href={`/w/${workspaceSlug}/projects`} className="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+      <Link
+        href={`/w/${workspaceSlug}/projects`}
+        className="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+      >
         <ArrowLeft className="h-3.5 w-3.5" /> All projects
       </Link>
 
@@ -70,7 +83,10 @@ export default async function ProjectDetailPage({
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
             {project.client && (
-              <Link href={`/w/${workspaceSlug}/clients/${project.client.id}`} className="hover:underline">
+              <Link
+                href={`/w/${workspaceSlug}/clients/${project.client.id}`}
+                className="hover:underline"
+              >
                 {project.client.name}
               </Link>
             )}
@@ -83,7 +99,9 @@ export default async function ProjectDetailPage({
               </>
             )}
           </div>
-          {project.description && <p className="mt-2 text-sm text-muted-foreground">{project.description}</p>}
+          {project.description && (
+            <p className="mt-2 text-sm text-muted-foreground">{project.description}</p>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {can(ctx, "tasks.create") && (
@@ -91,7 +109,10 @@ export default async function ProjectDetailPage({
               workspaceSlug={workspaceSlug}
               projects={[{ id: project.id, name: project.name }]}
               statuses={statuses}
-              members={members.map((m) => ({ id: m.user.id, name: m.user.displayName ?? m.user.email }))}
+              members={members.map((m) => ({
+                id: m.user.id,
+                name: m.user.displayName ?? m.user.email,
+              }))}
               defaultProjectId={project.id}
               trigger={
                 <Button size="sm">
@@ -105,8 +126,14 @@ export default async function ProjectDetailPage({
 
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Metric label="Status" value={project.status?.name ?? "—"} />
-        <Metric label="Budget" value={project.budgetMinor > 0 ? formatMoney(project.budgetMinor) : "—"} />
-        <Metric label="Logged" value={`${Math.floor(loggedMinutes / 60)}h ${loggedMinutes % 60}m`} />
+        <Metric
+          label="Budget"
+          value={project.budgetMinor > 0 ? formatMoney(project.budgetMinor) : "—"}
+        />
+        <Metric
+          label="Logged"
+          value={`${Math.floor(loggedMinutes / 60)}h ${loggedMinutes % 60}m`}
+        />
         <Metric label="Tasks" value={String(project.tasks.length)} />
       </div>
 
@@ -154,13 +181,29 @@ export default async function ProjectDetailPage({
                 </thead>
                 <tbody>
                   {project.tasks.map((t) => (
-                    <tr key={t.id} className="border-b border-border/40 last:border-0 hover:bg-muted/30">
+                    <tr
+                      key={t.id}
+                      className="border-b border-border/40 last:border-0 hover:bg-muted/30"
+                    >
                       <td className="px-4 py-2.5 font-medium">{t.name}</td>
                       <td className="px-4 py-2.5">
-                        {t.status && <Badge variant="outline" className={classForStatus(t.status.category)}>{t.status.name}</Badge>}
+                        {t.status && (
+                          <Badge variant="outline" className={classForStatus(t.status.category)}>
+                            {t.status.name}
+                          </Badge>
+                        )}
                       </td>
                       <td className="px-4 py-2.5">
-                        <Badge variant="outline" className={t.priority === "urgent" ? "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300" : t.priority === "high" ? "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300" : ""}>
+                        <Badge
+                          variant="outline"
+                          className={
+                            t.priority === "urgent"
+                              ? "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300"
+                              : t.priority === "high"
+                                ? "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300"
+                                : ""
+                          }
+                        >
                           {humanStatus(t.priority)}
                         </Badge>
                       </td>
@@ -168,13 +211,19 @@ export default async function ProjectDetailPage({
                         {t.assignee && (
                           <div className="flex items-center gap-2">
                             <Avatar className="h-5 w-5">
-                              <AvatarFallback className="text-[9px]">{initials(t.assignee.displayName)}</AvatarFallback>
+                              <AvatarFallback className="text-[9px]">
+                                {initials(t.assignee.displayName)}
+                              </AvatarFallback>
                             </Avatar>
-                            <span className="text-xs text-muted-foreground">{t.assignee.displayName}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {t.assignee.displayName}
+                            </span>
                           </div>
                         )}
                       </td>
-                      <td className="px-4 py-2.5 text-muted-foreground">{t.dueAt ? formatDate(t.dueAt) : "—"}</td>
+                      <td className="px-4 py-2.5 text-muted-foreground">
+                        {t.dueAt ? formatDate(t.dueAt) : "—"}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -198,12 +247,20 @@ export default async function ProjectDetailPage({
                       <div className="flex items-center justify-between">
                         <span className="font-medium">{m.name}</span>
                         <div className="flex items-center gap-2">
-                          <Badge variant="outline" className={classForStatus(m.status)}>{humanStatus(m.status)}</Badge>
-                          {m.dueDate && <span className="text-xs text-muted-foreground">{formatDate(m.dueDate)}</span>}
+                          <Badge variant="outline" className={classForStatus(m.status)}>
+                            {humanStatus(m.status)}
+                          </Badge>
+                          {m.dueDate && (
+                            <span className="text-xs text-muted-foreground">
+                              {formatDate(m.dueDate)}
+                            </span>
+                          )}
                         </div>
                       </div>
                       {m.tasks.length > 0 && (
-                        <div className="mt-2 text-xs text-muted-foreground">{m.tasks.length} task(s)</div>
+                        <div className="mt-2 text-xs text-muted-foreground">
+                          {m.tasks.length} task(s)
+                        </div>
                       )}
                     </div>
                   ))}
@@ -224,12 +281,19 @@ export default async function ProjectDetailPage({
               ) : (
                 <div className="space-y-2">
                   {project.timeEntries.map((t) => (
-                    <div key={t.id} className="flex items-center justify-between rounded-md border border-border/40 px-3 py-2 text-sm">
+                    <div
+                      key={t.id}
+                      className="flex items-center justify-between rounded-md border border-border/40 px-3 py-2 text-sm"
+                    >
                       <div>
                         <div className="font-medium">{t.description ?? "Untitled entry"}</div>
-                        <div className="text-xs text-muted-foreground">{t.user.displayName} · {relativeTime(t.startedAt)}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {t.user.displayName} · {relativeTime(t.startedAt)}
+                        </div>
                       </div>
-                      <Badge variant="outline" className={classForStatus(t.status)}>{humanStatus(t.status)}</Badge>
+                      <Badge variant="outline" className={classForStatus(t.status)}>
+                        {humanStatus(t.status)}
+                      </Badge>
                     </div>
                   ))}
                 </div>
@@ -251,13 +315,19 @@ export default async function ProjectDetailPage({
                   {project.members.map((m) => (
                     <div key={m.id} className="flex items-center gap-3">
                       <Avatar className="h-7 w-7">
-                        <AvatarFallback className="text-[10px]">{initials(m.membership.user.displayName)}</AvatarFallback>
+                        <AvatarFallback className="text-[10px]">
+                          {initials(m.membership.user.displayName)}
+                        </AvatarFallback>
                       </Avatar>
                       <div className="flex-1">
                         <div className="text-sm font-medium">{m.membership.user.displayName}</div>
-                        <div className="text-xs text-muted-foreground">{m.membership.user.email}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {m.membership.user.email}
+                        </div>
                       </div>
-                      <Badge variant="outline" className="capitalize">{m.accessLevel}</Badge>
+                      <Badge variant="outline" className="capitalize">
+                        {m.accessLevel}
+                      </Badge>
                     </div>
                   ))}
                 </div>
@@ -267,7 +337,7 @@ export default async function ProjectDetailPage({
         </TabsContent>
       </Tabs>
     </div>
-  );
+  )
 }
 
 function Metric({ label, value }: { label: string; value: string }) {
@@ -278,5 +348,5 @@ function Metric({ label, value }: { label: string; value: string }) {
         <div className="mt-1 text-lg font-semibold">{value}</div>
       </CardContent>
     </Card>
-  );
+  )
 }

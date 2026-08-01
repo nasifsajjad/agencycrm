@@ -25,19 +25,19 @@ Forcing the literal contract stack in this environment would either fail to run 
 
 ## Decision
 
-Implement AgencyOS as a **single Next.js 16 app** that fulfills the contract's *intent* — multi-tenant CRM with the same data model, the same authorization approach, the same permission catalogue, the same audit semantics, and the same UX surface — using the available sandbox stack.
+Implement AgencyOS as a **single Next.js 16 app** that fulfills the contract's _intent_ — multi-tenant CRM with the same data model, the same authorization approach, the same permission catalogue, the same audit semantics, and the same UX surface — using the available sandbox stack.
 
 ### Substitutions
 
-| Contract | Sandbox | Rationale |
-|----------|---------|-----------|
-| pnpm/Turborepo monorepo, 2 apps | Single Next.js 16 app | One port externally; routes partitioned by group `(marketing)`, `(auth)`, `w/[workspaceSlug]`, `portal/[portalSlug]` |
-| Supabase Postgres + RLS | Prisma + SQLite | SQLite is universally available; isolation moves to app layer via `resolveWorkspace` |
-| Supabase Auth | bcrypt + JWT session cookies | Custom auth gives full control; sessions stored in `Session` table for revocation |
-| Supabase Storage | `FileRecord` metadata table only | Binary upload deferred; schema seam ready for adapter |
-| Supabase Realtime | None (router.refresh) | Correctness does not depend on realtime; refetch on action |
-| Supabase Queues / Cron | Schema only | `AutomationRun` + `WebhookDelivery` tables exist; no worker |
-| Vitest + Playwright | Manual smoke testing | Test runner setup deferred to follow-up |
+| Contract                        | Sandbox                          | Rationale                                                                                                            |
+| ------------------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| pnpm/Turborepo monorepo, 2 apps | Single Next.js 16 app            | One port externally; routes partitioned by group `(marketing)`, `(auth)`, `w/[workspaceSlug]`, `portal/[portalSlug]` |
+| Supabase Postgres + RLS         | Prisma + SQLite                  | SQLite is universally available; isolation moves to app layer via `resolveWorkspace`                                 |
+| Supabase Auth                   | bcrypt + JWT session cookies     | Custom auth gives full control; sessions stored in `Session` table for revocation                                    |
+| Supabase Storage                | `FileRecord` metadata table only | Binary upload deferred; schema seam ready for adapter                                                                |
+| Supabase Realtime               | None (router.refresh)            | Correctness does not depend on realtime; refetch on action                                                           |
+| Supabase Queues / Cron          | Schema only                      | `AutomationRun` + `WebhookDelivery` tables exist; no worker                                                          |
+| Vitest + Playwright             | Manual smoke testing             | Test runner setup deferred to follow-up                                                                              |
 
 ### Preserved invariants
 

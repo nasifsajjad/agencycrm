@@ -1,15 +1,14 @@
-"use client";
+"use client"
 
-import * as React from "react";
-import Link from "next/link";
-import { Sparkles } from "lucide-react";
-import { useSearchParams } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { signInAction, signUpAction, forgotPasswordAction } from "@/lib/auth-actions";
-
+import * as React from "react"
+import Link from "next/link"
+import { Sparkles } from "lucide-react"
+import { useSearchParams } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { signInAction, signUpAction, forgotPasswordAction } from "@/lib/auth-actions"
 export function AuthCard({
   title,
   subtitle,
@@ -18,12 +17,12 @@ export function AuthCard({
   footerLabel,
   children,
 }: {
-  title: string;
-  subtitle: string;
-  footerText: string;
-  footerHref: string;
-  footerLabel: string;
-  children: React.ReactNode;
+  title: string
+  subtitle: string
+  footerText: string
+  footerHref: string
+  footerLabel: string
+  children: React.ReactNode
 }) {
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center px-4 py-12">
@@ -45,41 +44,44 @@ export function AuthCard({
         </div>
         <p className="mt-4 text-center text-sm text-muted-foreground">
           {footerText}{" "}
-          <Link href={footerHref} className="font-medium text-foreground underline-offset-4 hover:underline">
+          <Link
+            href={footerHref}
+            className="font-medium text-foreground underline-offset-4 hover:underline"
+          >
             {footerLabel}
           </Link>
         </p>
       </div>
     </div>
-  );
+  )
 }
 
 export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
-  const search = useSearchParams();
-  const next = search.get("next") || "/app";
-  const [error, setError] = React.useState<string | null>(null);
-  const [pending, setPending] = React.useState(false);
+  const search = useSearchParams()
+  const next = search.get("next") || "/app"
+  const [error, setError] = React.useState<string | null>(null)
+  const [pending, setPending] = React.useState(false)
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setError(null);
-    setPending(true);
+    e.preventDefault()
+    setError(null)
+    setPending(true)
     try {
-      const formData = new FormData(e.currentTarget);
+      const formData = new FormData(e.currentTarget)
       if (mode === "sign-in") {
-        formData.set("next", next);
-        const res = await signInAction(formData);
-        if (res?.error) setError(res.error);
+        formData.set("next", next)
+        const res = await signInAction(formData)
+        if (res?.error) setError(res.error)
       } else {
-        const res = await signUpAction(formData);
-        if (res?.error) setError(res.error);
+        const res = await signUpAction(formData)
+        if (res?.error) setError(res.error)
       }
     } catch (e: any) {
       // Next redirect throws — swallow
-      if (e?.digest?.startsWith("NEXT_REDIRECT")) return;
-      setError(e?.message ?? "Something went wrong. Please try again.");
+      if (e?.digest?.startsWith("NEXT_REDIRECT")) return
+      setError(e?.message ?? "Something went wrong. Please try again.")
     } finally {
-      setPending(false);
+      setPending(false)
     }
   }
 
@@ -109,25 +111,31 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
       </Button>
       <p className="text-center text-xs text-muted-foreground">
         By continuing, you agree to our{" "}
-        <Link href="/terms" className="underline hover:text-foreground">Terms</Link> and{" "}
-        <Link href="/privacy" className="underline hover:text-foreground">Privacy Policy</Link>.
+        <Link href="/terms" className="underline hover:text-foreground">
+          Terms
+        </Link>{" "}
+        and{" "}
+        <Link href="/privacy" className="underline hover:text-foreground">
+          Privacy Policy
+        </Link>
+        .
       </p>
     </form>
-  );
+  )
 }
 
 export function ForgotPasswordForm() {
-  const [done, setDone] = React.useState(false);
-  const [pending, setPending] = React.useState(false);
+  const [done, setDone] = React.useState(false)
+  const [pending, setPending] = React.useState(false)
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setPending(true);
+    e.preventDefault()
+    setPending(true)
     try {
-      await forgotPasswordAction(new FormData(e.currentTarget));
-      setDone(true);
+      await forgotPasswordAction(new FormData(e.currentTarget))
+      setDone(true)
     } finally {
-      setPending(false);
+      setPending(false)
     }
   }
 
@@ -135,10 +143,11 @@ export function ForgotPasswordForm() {
     return (
       <Alert>
         <AlertDescription>
-          If an account exists for that email, a reset link is on its way. (Local mode: no real email is sent.)
+          If an account exists for that email, a reset link is on its way. (Local mode: no real
+          email is sent.)
         </AlertDescription>
       </Alert>
-    );
+    )
   }
 
   return (
@@ -148,7 +157,7 @@ export function ForgotPasswordForm() {
         {pending ? "Sending…" : "Send reset link"}
       </Button>
     </form>
-  );
+  )
 }
 
 function Field({
@@ -159,18 +168,25 @@ function Field({
   required,
   hint,
 }: {
-  label: string;
-  name: string;
-  type: string;
-  placeholder?: string;
-  required?: boolean;
-  hint?: string;
+  label: string
+  name: string
+  type: string
+  placeholder?: string
+  required?: boolean
+  hint?: string
 }) {
   return (
     <div className="space-y-1.5">
       <Label htmlFor={name}>{label}</Label>
-      <Input id={name} name={name} type={type} placeholder={placeholder} required={required} autoComplete={type === "password" ? "current-password" : undefined} />
+      <Input
+        id={name}
+        name={name}
+        type={type}
+        placeholder={placeholder}
+        required={required}
+        autoComplete={type === "password" ? "current-password" : undefined}
+      />
       {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
     </div>
-  );
+  )
 }

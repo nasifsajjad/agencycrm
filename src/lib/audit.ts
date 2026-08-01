@@ -1,15 +1,15 @@
-import { db } from "@/lib/db";
-import type { WorkspaceContext } from "@/lib/auth";
+import { db } from "@/lib/db"
+import type { WorkspaceContext } from "@/lib/auth"
 
 export interface AuditInput {
-  ctx: WorkspaceContext;
-  action: string;
-  entityType: string;
-  entityId?: string;
-  before?: unknown;
-  after?: unknown;
-  ipHash?: string;
-  userAgentSummary?: string;
+  ctx: WorkspaceContext
+  action: string
+  entityType: string
+  entityId?: string
+  before?: unknown
+  after?: unknown
+  ipHash?: string
+  userAgentSummary?: string
 }
 
 export async function audit(input: AuditInput) {
@@ -25,15 +25,18 @@ export async function audit(input: AuditInput) {
       ipHash: input.ipHash ?? null,
       userAgentSummary: input.userAgentSummary ?? null,
     },
-  });
+  })
 }
 
-export async function listAuditEvents(workspaceId: string, opts?: { limit?: number; offset?: number; entityType?: string }) {
+export async function listAuditEvents(
+  workspaceId: string,
+  opts?: { limit?: number; offset?: number; entityType?: string }
+) {
   return db.auditEvent.findMany({
     where: { workspaceId, entityType: opts?.entityType },
     orderBy: { occurredAt: "desc" },
     take: opts?.limit ?? 50,
     skip: opts?.offset ?? 0,
     include: { actorUser: { select: { id: true, email: true, displayName: true } } },
-  });
+  })
 }

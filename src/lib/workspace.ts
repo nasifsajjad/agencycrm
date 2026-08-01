@@ -1,30 +1,30 @@
-import { db } from "@/lib/db";
-import { ROLE_PERMISSIONS, isSystemRole } from "@/lib/permissions";
+import { db } from "@/lib/db"
+import { ROLE_PERMISSIONS, isSystemRole } from "@/lib/permissions"
 
-const ALL_PERMISSIONS = ROLE_PERMISSIONS.Owner;
+const ALL_PERMISSIONS = ROLE_PERMISSIONS.Owner
 
 async function ensurePermissions() {
-  const existing = await db.permission.findMany();
-  const existingKeys = new Set(existing.map((p) => p.key));
-  const missing = ALL_PERMISSIONS.filter((p) => !existingKeys.has(p));
+  const existing = await db.permission.findMany()
+  const existingKeys = new Set(existing.map((p) => p.key))
+  const missing = ALL_PERMISSIONS.filter((p) => !existingKeys.has(p))
   if (missing.length > 0) {
     await db.permission.createMany({
       data: missing.map((key) => ({
         key,
         description: key,
       })),
-    });
+    })
   }
 }
 
 async function ensureSystemRoles(workspaceId: string) {
-  const permissionRecords = await db.permission.findMany();
-  const permMap = new Map(permissionRecords.map((p) => [p.key, p.id]));
+  const permissionRecords = await db.permission.findMany()
+  const permMap = new Map(permissionRecords.map((p) => [p.key, p.id]))
 
   for (const [roleName, perms] of Object.entries(ROLE_PERMISSIONS)) {
     let role = await db.role.findUnique({
       where: { workspaceId_name: { workspaceId, name: roleName } },
-    });
+    })
     if (!role) {
       role = await db.role.create({
         data: {
@@ -33,26 +33,26 @@ async function ensureSystemRoles(workspaceId: string) {
           description: `System role: ${roleName}`,
           isSystem: true,
         },
-      });
+      })
     }
     // Ensure all permission links exist
     for (const permKey of perms) {
-      const permId = permMap.get(permKey);
-      if (!permId) continue;
+      const permId = permMap.get(permKey)
+      if (!permId) continue
       const exists = await db.rolePermission.findUnique({
         where: { roleId_permissionId: { roleId: role.id, permissionId: permId } },
-      });
+      })
       if (!exists) {
         await db.rolePermission.create({
           data: { roleId: role.id, permissionId: permId },
-        });
+        })
       }
     }
   }
 }
 
 async function ensureDefaultPipeline(workspaceId: string) {
-  let pipeline = await db.pipeline.findFirst({ where: { workspaceId, isDefault: true } });
+  let pipeline = await db.pipeline.findFirst({ where: { workspaceId, isDefault: true } })
   if (!pipeline) {
     pipeline = await db.pipeline.create({
       data: {
@@ -61,7 +61,7 @@ async function ensureDefaultPipeline(workspaceId: string) {
         entityType: "deal",
         isDefault: true,
       },
-    });
+    })
     const stages = [
       { name: "Lead", position: 0, probability: 10, color: "#94a3b8" },
       { name: "Qualified", position: 1, probability: 25, color: "#3b82f6" },
@@ -69,14 +69,14 @@ async function ensureDefaultPipeline(workspaceId: string) {
       { name: "Negotiation", position: 3, probability: 75, color: "#f59e0b" },
       { name: "Won", position: 4, probability: 100, color: "#10b981", isClosed: true, isWon: true },
       { name: "Lost", position: 5, probability: 0, color: "#ef4444", isClosed: true },
-    ];
+    ]
     for (const s of stages) {
       await db.pipelineStage.create({
         data: { pipelineId: pipeline.id, ...s },
-      });
+      })
     }
   }
-  return pipeline;
+  return pipeline
 }
 
 async function ensureDefaultStatuses(workspaceId: string) {
@@ -86,13 +86,13 @@ async function ensureDefaultStatuses(workspaceId: string) {
     { name: "On Hold", position: 2, color: "#f59e0b", category: "on_hold" },
     { name: "Completed", position: 3, color: "#10b981", category: "done" },
     { name: "Cancelled", position: 4, color: "#ef4444", category: "cancelled" },
-  ];
+  ]
   for (const ps of projectStatuses) {
     const exists = await db.projectStatus.findUnique({
       where: { workspaceId_name: { workspaceId, name: ps.name } },
-    });
+    })
     if (!exists) {
-      await db.projectStatus.create({ data: { workspaceId, ...ps } });
+      await db.projectStatus.create({ data: { workspaceId, ...ps } })
     }
   }
 
@@ -103,28 +103,28 @@ async function ensureDefaultStatuses(workspaceId: string) {
     { name: "In Review", position: 3, color: "#8b5cf6", category: "in_progress" },
     { name: "Done", position: 4, color: "#10b981", category: "done" },
     { name: "Blocked", position: 5, color: "#ef4444", category: "blocked" },
-  ];
+  ]
   for (const ts of taskStatuses) {
     const exists = await db.taskStatus.findUnique({
       where: { workspaceId_name: { workspaceId, name: ts.name } },
-    });
+    })
     if (!exists) {
-      await db.taskStatus.create({ data: { workspaceId, ...ts } });
+      await db.taskStatus.create({ data: { workspaceId, ...ts } })
     }
   }
 }
 
 export interface WorkspaceBootstrapResult {
-  workspaceId: string;
-  membershipId: string;
+  workspaceId: string
+  membershipId: string
 }
 
 export async function bootstrapWorkspace(opts: {
-  name: string;
-  slug: string;
-  ownerId: string;
-  currency?: string;
-  timezone?: string;
+  name: string
+  slug: string
+  ownerId: string
+  currency?: string
+  timezone?: string
 }): Promise<WorkspaceBootstrapResult> {
   return db.$transaction(async (tx) => {
     const workspace = await tx.workspace.create({
@@ -136,7 +136,7 @@ export async function bootstrapWorkspace(opts: {
         timezone: opts.timezone ?? "UTC",
         settingsJson: { density: "comfortable", theme: "system" },
       },
-    });
+    })
 
     const membership = await tx.workspaceMembership.create({
       data: {
@@ -145,11 +145,11 @@ export async function bootstrapWorkspace(opts: {
         status: "active",
         title: "Owner",
       },
-    });
+    })
 
     // Create system roles for this workspace (within the same tx)
-    const permissionRecords = await tx.permission.findMany();
-    const permMap = new Map(permissionRecords.map((p) => [p.key, p.id]));
+    const permissionRecords = await tx.permission.findMany()
+    const permMap = new Map(permissionRecords.map((p) => [p.key, p.id]))
 
     for (const [roleName, perms] of Object.entries(ROLE_PERMISSIONS)) {
       const role = await tx.role.create({
@@ -159,24 +159,24 @@ export async function bootstrapWorkspace(opts: {
           description: `System role: ${roleName}`,
           isSystem: true,
         },
-      });
+      })
       for (const permKey of perms) {
-        const permId = permMap.get(permKey);
-        if (!permId) continue;
+        const permId = permMap.get(permKey)
+        if (!permId) continue
         await tx.rolePermission.create({
           data: { roleId: role.id, permissionId: permId },
-        });
+        })
       }
     }
 
     // Assign Owner role to the owner's membership
     const ownerRole = await tx.role.findUnique({
       where: { workspaceId_name: { workspaceId: workspace.id, name: "Owner" } },
-    });
+    })
     if (ownerRole) {
       await tx.membershipRole.create({
         data: { membershipId: membership.id, roleId: ownerRole.id },
-      });
+      })
     }
 
     // Default pipeline
@@ -187,7 +187,7 @@ export async function bootstrapWorkspace(opts: {
         entityType: "deal",
         isDefault: true,
       },
-    });
+    })
     const stages = [
       { name: "Lead", position: 0, probability: 10, color: "#94a3b8" },
       { name: "Qualified", position: 1, probability: 25, color: "#3b82f6" },
@@ -195,9 +195,9 @@ export async function bootstrapWorkspace(opts: {
       { name: "Negotiation", position: 3, probability: 75, color: "#f59e0b" },
       { name: "Won", position: 4, probability: 100, color: "#10b981", isClosed: true, isWon: true },
       { name: "Lost", position: 5, probability: 0, color: "#ef4444", isClosed: true },
-    ];
+    ]
     for (const s of stages) {
-      await tx.pipelineStage.create({ data: { pipelineId: pipeline.id, ...s } });
+      await tx.pipelineStage.create({ data: { pipelineId: pipeline.id, ...s } })
     }
 
     // Default statuses
@@ -207,9 +207,9 @@ export async function bootstrapWorkspace(opts: {
       { name: "On Hold", position: 2, color: "#f59e0b", category: "on_hold" },
       { name: "Completed", position: 3, color: "#10b981", category: "done" },
       { name: "Cancelled", position: 4, color: "#ef4444", category: "cancelled" },
-    ];
+    ]
     for (const ps of projectStatuses) {
-      await tx.projectStatus.create({ data: { workspaceId: workspace.id, ...ps } });
+      await tx.projectStatus.create({ data: { workspaceId: workspace.id, ...ps } })
     }
     const taskStatuses = [
       { name: "Backlog", position: 0, color: "#64748b", category: "todo" },
@@ -218,9 +218,9 @@ export async function bootstrapWorkspace(opts: {
       { name: "In Review", position: 3, color: "#8b5cf6", category: "in_progress" },
       { name: "Done", position: 4, color: "#10b981", category: "done" },
       { name: "Blocked", position: 5, color: "#ef4444", category: "blocked" },
-    ];
+    ]
     for (const ts of taskStatuses) {
-      await tx.taskStatus.create({ data: { workspaceId: workspace.id, ...ts } });
+      await tx.taskStatus.create({ data: { workspaceId: workspace.id, ...ts } })
     }
 
     // Default services
@@ -230,9 +230,9 @@ export async function bootstrapWorkspace(opts: {
       { name: "Campaign Management", defaultRateMinor: BigInt(15000), billingUnit: "hour" },
       { name: "SEO", defaultRateMinor: BigInt(12000), billingUnit: "hour" },
       { name: "Paid Media", defaultRateMinor: BigInt(14000), billingUnit: "hour" },
-    ];
+    ]
     for (const s of services) {
-      await tx.service.create({ data: { workspaceId: workspace.id, ...s } });
+      await tx.service.create({ data: { workspaceId: workspace.id, ...s } })
     }
 
     // Default feature flags
@@ -245,17 +245,17 @@ export async function bootstrapWorkspace(opts: {
       { key: "portal", enabled: true },
       { key: "automations", enabled: false },
       { key: "ai_assistant", enabled: false },
-    ];
+    ]
     for (const f of flags) {
-      await tx.featureFlag.create({ data: { workspaceId: workspace.id, ...f } });
+      await tx.featureFlag.create({ data: { workspaceId: workspace.id, ...f } })
     }
 
-    return { workspaceId: workspace.id, membershipId: membership.id };
-  });
+    return { workspaceId: workspace.id, membershipId: membership.id }
+  })
 }
 
 export async function ensureSeedPermissions() {
-  return ensurePermissions();
+  return ensurePermissions()
 }
 
-export { isSystemRole };
+export { isSystemRole }

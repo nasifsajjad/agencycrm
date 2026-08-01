@@ -65,9 +65,9 @@ export const PERMISSIONS = [
   "integrations.manage",
   "portal.manage",
   "exports.create",
-] as const;
+] as const
 
-export type Permission = (typeof PERMISSIONS)[number];
+export type Permission = (typeof PERMISSIONS)[number]
 
 /**
  * Default role → permission map.
@@ -224,10 +224,10 @@ export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
     "comments.read",
     "comments.create",
   ],
-};
+}
 
-export const SYSTEM_ROLES = Object.keys(ROLE_PERMISSIONS);
+export const SYSTEM_ROLES = Object.keys(ROLE_PERMISSIONS)
 
 export function isSystemRole(name: string): boolean {
-  return SYSTEM_ROLES.includes(name);
+  return SYSTEM_ROLES.includes(name)
 }

@@ -33,28 +33,28 @@ Every contact, decision, task, asset, approval, hour, expense, result, and relat
 
 ## Module map
 
-| Module | Routes | Status |
-|--------|--------|--------|
-| Marketing site | `/`, `/product`, `/features`, `/pricing`, `/security`, `/solutions/*`, `/about`, `/contact`, `/book-demo`, `/templates`, `/docs`, `/privacy`, `/terms` | ✅ Implemented |
-| Auth | `/sign-in`, `/sign-up`, `/forgot-password`, `/accept-invite` | ✅ Implemented |
-| Onboarding | `/onboarding` | ✅ Implemented |
-| Dashboard | `/w/[slug]` | ✅ Implemented |
-| CRM | `/w/[slug]/crm/contacts`, `/companies`, `/leads`, `/deals`, `/activities` | ✅ Implemented |
-| Clients | `/w/[slug]/clients`, `/clients/[id]` | ✅ Implemented (Client 360) |
-| Projects | `/w/[slug]/projects`, `/projects/[id]` | ✅ Implemented |
-| Tasks | `/w/[slug]/tasks` | ✅ Implemented |
-| Campaigns | `/w/[slug]/campaigns` | ✅ List only |
-| Approvals | `/w/[slug]/approvals`, `/approvals/[id]` | ✅ Implemented |
-| Time | `/w/[slug]/time` | ✅ Implemented |
-| Capacity | `/w/[slug]/capacity` | ✅ Implemented |
-| Finance | `/w/[slug]/finance` | ✅ Implemented |
-| Reports | `/w/[slug]/reports` | ✅ Implemented |
-| My work | `/w/[slug]/my-work` | ✅ Implemented |
-| Search | `/w/[slug]/search` | ✅ Implemented |
-| Notifications | `/w/[slug]/notifications` | ✅ Implemented |
-| Settings | `/w/[slug]/settings/{general,members,teams,roles,audit,customization,integrations,import-export}` | ✅ Implemented |
-| Client portal | `/portal/[slug]/{,projects,requests,approvals,files,reports}` | ✅ Implemented |
-| Health | `/api/health` | ✅ Implemented |
+| Module         | Routes                                                                                                                                                 | Status                      |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------- |
+| Marketing site | `/`, `/product`, `/features`, `/pricing`, `/security`, `/solutions/*`, `/about`, `/contact`, `/book-demo`, `/templates`, `/docs`, `/privacy`, `/terms` | ✅ Implemented              |
+| Auth           | `/sign-in`, `/sign-up`, `/forgot-password`, `/accept-invite`                                                                                           | ✅ Implemented              |
+| Onboarding     | `/onboarding`                                                                                                                                          | ✅ Implemented              |
+| Dashboard      | `/w/[slug]`                                                                                                                                            | ✅ Implemented              |
+| CRM            | `/w/[slug]/crm/contacts`, `/companies`, `/leads`, `/deals`, `/activities`                                                                              | ✅ Implemented              |
+| Clients        | `/w/[slug]/clients`, `/clients/[id]`                                                                                                                   | ✅ Implemented (Client 360) |
+| Projects       | `/w/[slug]/projects`, `/projects/[id]`                                                                                                                 | ✅ Implemented              |
+| Tasks          | `/w/[slug]/tasks`                                                                                                                                      | ✅ Implemented              |
+| Campaigns      | `/w/[slug]/campaigns`                                                                                                                                  | ✅ List only                |
+| Approvals      | `/w/[slug]/approvals`, `/approvals/[id]`                                                                                                               | ✅ Implemented              |
+| Time           | `/w/[slug]/time`                                                                                                                                       | ✅ Implemented              |
+| Capacity       | `/w/[slug]/capacity`                                                                                                                                   | ✅ Implemented              |
+| Finance        | `/w/[slug]/finance`                                                                                                                                    | ✅ Implemented              |
+| Reports        | `/w/[slug]/reports`                                                                                                                                    | ✅ Implemented              |
+| My work        | `/w/[slug]/my-work`                                                                                                                                    | ✅ Implemented              |
+| Search         | `/w/[slug]/search`                                                                                                                                     | ✅ Implemented              |
+| Notifications  | `/w/[slug]/notifications`                                                                                                                              | ✅ Implemented              |
+| Settings       | `/w/[slug]/settings/{general,members,teams,roles,audit,customization,integrations,import-export}`                                                      | ✅ Implemented              |
+| Client portal  | `/portal/[slug]/{,projects,requests,approvals,files,reports}`                                                                                          | ✅ Implemented              |
+| Health         | `/api/health`                                                                                                                                          | ✅ Implemented              |
 
 ## Definitions
 

@@ -1,0 +1,17 @@
+{
+  "name": "@agencyos/auth",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "dependencies": {
+    "@agencyos/database": "workspace:*",
+    "@supabase/supabase-js": "^2.111.0",
+    "@supabase/ssr": "^0.12.4",
+    "bcryptjs": "^3.0.3",
+    "jose": "^6.2.5"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^3.0.0"
+  }
+}

@@ -1,6 +1,7 @@
-import { AuthCard, AuthForm } from "@/components/auth/auth-form";
+import { Suspense } from "react"
+import { AuthCard, AuthForm } from "@/components/auth/auth-form"
 
-export const metadata = { title: "Start free" };
+export const metadata = { title: "Start free" }
 
 export default function SignUpPage() {
   return (
@@ -11,7 +12,11 @@ export default function SignUpPage() {
       footerHref="/sign-in"
       footerLabel="Sign in"
     >
-      <AuthForm mode="sign-up" />
+      <Suspense
+        fallback={<div className="py-4 text-center text-sm text-muted-foreground">Loading…</div>}
+      >
+        <AuthForm mode="sign-up" />
+      </Suspense>
     </AuthCard>
-  );
+  )
 }

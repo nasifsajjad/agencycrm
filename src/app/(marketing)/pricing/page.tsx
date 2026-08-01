@@ -1,44 +1,103 @@
-import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { CheckCircle2 } from "lucide-react";
-import { MarketingBadge } from "@/components/marketing/shell";
+import Link from "next/link"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { CheckCircle2 } from "lucide-react"
+import { MarketingBadge } from "@/components/marketing/shell"
 
-export const metadata = { title: "Pricing" };
+export const metadata = { title: "Pricing" }
 
 const PLANS = [
   {
-    name: "Starter", price: "$0", cadence: "free for 5 seats", desc: "For new agencies getting organized.",
-    features: ["CRM & pipelines", "Projects & tasks", "Time tracking", "Client portal (1 brand)", "2-week audit log", "Community support"],
-    cta: "Start free", href: "/sign-up", highlight: false,
+    name: "Starter",
+    price: "$0",
+    cadence: "free for 5 seats",
+    desc: "For new agencies getting organized.",
+    features: [
+      "CRM & pipelines",
+      "Projects & tasks",
+      "Time tracking",
+      "Client portal (1 brand)",
+      "2-week audit log",
+      "Community support",
+    ],
+    cta: "Start free",
+    href: "/sign-up",
+    highlight: false,
   },
   {
-    name: "Growth", price: "$29", cadence: "per seat / month", desc: "For agencies scaling delivery.",
-    features: ["Everything in Starter", "Approvals & proofing", "Retainers & finance", "Automations", "Custom fields & dashboards", "Unlimited portal brands", "90-day audit log", "Priority support"],
-    cta: "Start free", href: "/sign-up", highlight: true,
+    name: "Growth",
+    price: "$29",
+    cadence: "per seat / month",
+    desc: "For agencies scaling delivery.",
+    features: [
+      "Everything in Starter",
+      "Approvals & proofing",
+      "Retainers & finance",
+      "Automations",
+      "Custom fields & dashboards",
+      "Unlimited portal brands",
+      "90-day audit log",
+      "Priority support",
+    ],
+    cta: "Start free",
+    href: "/sign-up",
+    highlight: true,
   },
   {
-    name: "Scale", price: "Custom", cadence: "annual", desc: "For multi-brand & enterprise.",
-    features: ["Everything in Growth", "SSO / SAML", "SCIM provisioning", "Custom domains", "Unlimited audit log", "Sandbox & config promotion", "Dedicated CSM", "99.9% uptime SLA"],
-    cta: "Talk to us", href: "/contact", highlight: false,
+    name: "Scale",
+    price: "Custom",
+    cadence: "annual",
+    desc: "For multi-brand & enterprise.",
+    features: [
+      "Everything in Growth",
+      "SSO / SAML",
+      "SCIM provisioning",
+      "Custom domains",
+      "Unlimited audit log",
+      "Sandbox & config promotion",
+      "Dedicated CSM",
+      "99.9% uptime SLA",
+    ],
+    cta: "Talk to us",
+    href: "/contact",
+    highlight: false,
   },
-];
+]
 
 const FAQ = [
-  { q: "Is there a free plan?", a: "Yes — Starter is free for the first 5 seats, including CRM, projects, time tracking, and a 1-brand client portal." },
-  { q: "Can I switch plans later?", a: "Yes, you can upgrade or downgrade at any time. Changes are prorated automatically." },
-  { q: "Do you offer discounts?", a: "Annual billing gets a 20% discount. Non-profits and early-stage agencies may qualify for additional discounts — contact us." },
-  { q: "What payment methods do you accept?", a: "All major credit cards. Scale plan customers can pay by ACH or wire." },
-  { q: "Is my data locked in?", a: "No. You can export your data at any time as CSV. Every export is recorded in the audit log." },
-];
+  {
+    q: "Is there a free plan?",
+    a: "Yes — Starter is free for the first 5 seats, including CRM, projects, time tracking, and a 1-brand client portal.",
+  },
+  {
+    q: "Can I switch plans later?",
+    a: "Yes, you can upgrade or downgrade at any time. Changes are prorated automatically.",
+  },
+  {
+    q: "Do you offer discounts?",
+    a: "Annual billing gets a 20% discount. Non-profits and early-stage agencies may qualify for additional discounts — contact us.",
+  },
+  {
+    q: "What payment methods do you accept?",
+    a: "All major credit cards. Scale plan customers can pay by ACH or wire.",
+  },
+  {
+    q: "Is my data locked in?",
+    a: "No. You can export your data at any time as CSV. Every export is recorded in the audit log.",
+  },
+]
 
 export default function PricingPage() {
   return (
     <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-2xl text-center">
         <MarketingBadge>Pricing</MarketingBadge>
-        <h1 className="mt-4 text-4xl font-semibold tracking-tight sm:text-5xl">Pricing that scales with you</h1>
-        <p className="mt-4 text-lg text-muted-foreground">Start free. Upgrade when you&apos;re ready. No hidden fees.</p>
+        <h1 className="mt-4 text-4xl font-semibold tracking-tight sm:text-5xl">
+          Pricing that scales with you
+        </h1>
+        <p className="mt-4 text-lg text-muted-foreground">
+          Start free. Upgrade when you&apos;re ready. No hidden fees.
+        </p>
       </div>
 
       <div className="mt-12 grid gap-6 lg:grid-cols-3">
@@ -47,7 +106,11 @@ export default function PricingPage() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>{p.name}</CardTitle>
-                {p.highlight && <span className="rounded-full bg-foreground px-2 py-0.5 text-[10px] font-medium text-background">Most popular</span>}
+                {p.highlight && (
+                  <span className="rounded-full bg-foreground px-2 py-0.5 text-[10px] font-medium text-background">
+                    Most popular
+                  </span>
+                )}
               </div>
               <div className="mt-2 flex items-baseline gap-1">
                 <span className="text-4xl font-semibold tracking-tight">{p.price}</span>
@@ -73,8 +136,12 @@ export default function PricingPage() {
       </div>
 
       <p className="mt-6 text-center text-xs text-muted-foreground">
-        Prices are illustrative for product demonstration. All plans include the security model described in the{" "}
-        <Link href="/security" className="underline">security overview</Link>.
+        Prices are illustrative for product demonstration. All plans include the security model
+        described in the{" "}
+        <Link href="/security" className="underline">
+          security overview
+        </Link>
+        .
       </p>
 
       <div className="mx-auto mt-16 max-w-2xl">
@@ -93,5 +160,5 @@ export default function PricingPage() {
         </div>
       </div>
     </div>
-  );
+  )
 }

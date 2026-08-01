@@ -1,27 +1,27 @@
-import Link from "next/link";
-import { Plus } from "lucide-react";
-import { db } from "@/lib/db";
-import { resolveWorkspace } from "@/lib/server";
-import { can } from "@/lib/auth";
-import { PageHeader, EmptyState, Forbidden } from "@/components/app/states";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ProjectFormDialog } from "@/components/app/project-form";
-import { humanStatus, classForStatus, formatDate, formatMoney, initials } from "@/lib/format";
+import Link from "next/link"
+import { Plus } from "lucide-react"
+import { db } from "@/lib/db"
+import { resolveWorkspace } from "@/lib/server"
+import { can } from "@/lib/auth"
+import { PageHeader, EmptyState, Forbidden } from "@/components/app/states"
+import { Card } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { ProjectFormDialog } from "@/components/app/project-form"
+import { humanStatus, classForStatus, formatDate, formatMoney, initials } from "@/lib/format"
 
 export default async function ProjectsPage({
   params,
   searchParams,
 }: {
-  params: Promise<{ workspaceSlug: string }>;
-  searchParams: Promise<{ new?: string }>;
+  params: Promise<{ workspaceSlug: string }>
+  searchParams: Promise<{ new?: string }>
 }) {
-  const { workspaceSlug } = await params;
-  const { new: isNew } = await searchParams;
-  const ctx = await resolveWorkspace(workspaceSlug);
-  if (!can(ctx, "projects.read")) return <Forbidden />;
+  const { workspaceSlug } = await params
+  const { new: isNew } = await searchParams
+  const ctx = await resolveWorkspace(workspaceSlug)
+  if (!can(ctx, "projects.read")) return <Forbidden />
 
   const [projects, clients, statuses] = await Promise.all([
     db.project.findMany({
@@ -34,9 +34,15 @@ export default async function ProjectsPage({
       },
       orderBy: { updatedAt: "desc" },
     }),
-    db.client.findMany({ where: { workspaceId: ctx.workspaceId }, select: { id: true, name: true } }),
-    db.projectStatus.findMany({ where: { workspaceId: ctx.workspaceId }, orderBy: { position: "asc" } }),
-  ]);
+    db.client.findMany({
+      where: { workspaceId: ctx.workspaceId },
+      select: { id: true, name: true },
+    }),
+    db.projectStatus.findMany({
+      where: { workspaceId: ctx.workspaceId },
+      orderBy: { position: "asc" },
+    }),
+  ])
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
@@ -63,7 +69,11 @@ export default async function ProjectsPage({
         <EmptyState
           title="No projects yet"
           description="Create a project from a template or from scratch."
-          action={can(ctx, "projects.create") ? { label: "New project", href: `/w/${workspaceSlug}/projects?new=1` } : undefined}
+          action={
+            can(ctx, "projects.create")
+              ? { label: "New project", href: `/w/${workspaceSlug}/projects?new=1` }
+              : undefined
+          }
         />
       ) : (
         <Card className="overflow-hidden">
@@ -82,30 +92,52 @@ export default async function ProjectsPage({
               </thead>
               <tbody>
                 {projects.map((p) => (
-                  <tr key={p.id} className="border-b border-border/40 last:border-0 hover:bg-muted/30 transition-colors">
+                  <tr
+                    key={p.id}
+                    className="border-b border-border/40 last:border-0 hover:bg-muted/30 transition-colors"
+                  >
                     <td className="px-4 py-2.5">
-                      <Link href={`/w/${workspaceSlug}/projects/${p.id}`} className="font-medium hover:underline">
+                      <Link
+                        href={`/w/${workspaceSlug}/projects/${p.id}`}
+                        className="font-medium hover:underline"
+                      >
                         {p.name}
                       </Link>
-                      {p.code && <span className="ml-2 text-xs text-muted-foreground">{p.code}</span>}
+                      {p.code && (
+                        <span className="ml-2 text-xs text-muted-foreground">{p.code}</span>
+                      )}
                     </td>
                     <td className="px-4 py-2.5 text-muted-foreground">{p.client?.name ?? "—"}</td>
                     <td className="px-4 py-2.5">
-                      {p.status && <Badge variant="outline" className={classForStatus(p.status.category)}>{p.status.name}</Badge>}
+                      {p.status && (
+                        <Badge variant="outline" className={classForStatus(p.status.category)}>
+                          {p.status.name}
+                        </Badge>
+                      )}
                     </td>
                     <td className="px-4 py-2.5">
                       {p.owner && (
                         <div className="flex items-center gap-2">
                           <Avatar className="h-5 w-5">
-                            <AvatarFallback className="text-[9px]">{initials(p.owner.displayName)}</AvatarFallback>
+                            <AvatarFallback className="text-[9px]">
+                              {initials(p.owner.displayName)}
+                            </AvatarFallback>
                           </Avatar>
-                          <span className="text-xs text-muted-foreground">{p.owner.displayName}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {p.owner.displayName}
+                          </span>
                         </div>
                       )}
                     </td>
-                    <td className="px-4 py-2.5 text-muted-foreground">{p.dueDate ? formatDate(p.dueDate) : "—"}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">{p.budgetMinor > 0 ? formatMoney(p.budgetMinor) : "—"}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">{p._count.tasks}</td>
+                    <td className="px-4 py-2.5 text-muted-foreground">
+                      {p.dueDate ? formatDate(p.dueDate) : "—"}
+                    </td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">
+                      {p.budgetMinor > 0 ? formatMoney(p.budgetMinor) : "—"}
+                    </td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-muted-foreground">
+                      {p._count.tasks}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -114,5 +146,5 @@ export default async function ProjectsPage({
         </Card>
       )}
     </div>
-  );
+  )
 }

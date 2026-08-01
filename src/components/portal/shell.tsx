@@ -1,14 +1,23 @@
-import Link from "next/link";
-import { Sparkles, Bell, FileText, FolderKanban, FileCheck2, Megaphone, BarChart3, ArrowRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import Link from "next/link"
+import {
+  Sparkles,
+  Bell,
+  FileText,
+  FolderKanban,
+  FileCheck2,
+  Megaphone,
+  BarChart3,
+  ArrowRight,
+} from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 
 export function PortalShell({
   portal,
   children,
 }: {
-  portal: { slug: string; brandColor: string; clientName: string; workspaceName: string };
-  children: React.ReactNode;
+  portal: { slug: string; brandColor: string; clientName: string; workspaceName: string }
+  children: React.ReactNode
 }) {
   const nav = [
     { href: `/portal/${portal.slug}`, label: "Home", icon: Sparkles },
@@ -17,18 +26,26 @@ export function PortalShell({
     { href: `/portal/${portal.slug}/approvals`, label: "Approvals", icon: FileCheck2 },
     { href: `/portal/${portal.slug}/files`, label: "Files", icon: Megaphone },
     { href: `/portal/${portal.slug}/reports`, label: "Reports", icon: BarChart3 },
-  ];
+  ]
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="border-b border-border/60 bg-background" style={{ borderTop: `3px solid ${portal.brandColor}` }}>
+      <header
+        className="border-b border-border/60 bg-background"
+        style={{ borderTop: `3px solid ${portal.brandColor}` }}
+      >
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6">
           <div className="flex items-center gap-3">
-            <div className="grid h-8 w-8 place-items-center rounded-md text-white" style={{ backgroundColor: portal.brandColor }}>
+            <div
+              className="grid h-8 w-8 place-items-center rounded-md text-white"
+              style={{ backgroundColor: portal.brandColor }}
+            >
               <Sparkles className="h-4 w-4" />
             </div>
             <div>
               <div className="text-sm font-medium">{portal.workspaceName}</div>
-              <div className="text-[10px] text-muted-foreground">Client portal · {portal.clientName}</div>
+              <div className="text-[10px] text-muted-foreground">
+                Client portal · {portal.clientName}
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -56,5 +73,5 @@ export function PortalShell({
         <main className="min-w-0 flex-1 md:pl-6">{children}</main>
       </div>
     </div>
-  );
+  )
 }

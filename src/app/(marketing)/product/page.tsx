@@ -1,10 +1,10 @@
-import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { ArrowRight, CheckCircle2 } from "lucide-react";
-import { MarketingBadge } from "@/components/marketing/shell";
+import Link from "next/link"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { ArrowRight, CheckCircle2 } from "lucide-react"
+import { MarketingBadge } from "@/components/marketing/shell"
 
-export const metadata = { title: "Product" };
+export const metadata = { title: "Product" }
 
 export default function ProductPage() {
   return (
@@ -15,11 +15,18 @@ export default function ProductPage() {
           One workspace, the whole agency
         </h1>
         <p className="mt-4 text-lg text-muted-foreground">
-          AgencyOS replaces the patchwork of CRM, project, time, and finance tools with a single, configurable workspace — purpose-built for agencies.
+          AgencyOS replaces the patchwork of CRM, project, time, and finance tools with a single,
+          configurable workspace — purpose-built for agencies.
         </p>
         <div className="mt-6 flex justify-center gap-3">
-          <Button asChild size="lg"><Link href="/sign-up">Start free <ArrowRight className="ml-1 h-4 w-4" /></Link></Button>
-          <Button asChild size="lg" variant="outline"><Link href="/book-demo">Book a demo</Link></Button>
+          <Button asChild size="lg">
+            <Link href="/sign-up">
+              Start free <ArrowRight className="ml-1 h-4 w-4" />
+            </Link>
+          </Button>
+          <Button asChild size="lg" variant="outline">
+            <Link href="/book-demo">Book a demo</Link>
+          </Button>
         </div>
       </div>
 
@@ -43,7 +50,7 @@ export default function ProductPage() {
         ))}
       </div>
     </div>
-  );
+  )
 }
 
 const MODULES = [
@@ -92,4 +99,4 @@ const MODULES = [
     desc: "Trigger-based workflows with conditions, actions, run logs, retries, and idempotency.",
     points: ["Trigger library", "Condition trees", "Run history", "Webhook delivery"],
   },
-];
+]

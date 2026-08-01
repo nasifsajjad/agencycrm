@@ -1,19 +1,19 @@
-import { db } from "@/lib/db";
-import { resolveWorkspace } from "@/lib/server";
-import { can } from "@/lib/auth";
-import { PageHeader, Forbidden } from "@/components/app/states";
-import { SettingsNav } from "@/components/app/settings-nav";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { db } from "@/lib/db"
+import { resolveWorkspace } from "@/lib/server"
+import { can } from "@/lib/auth"
+import { PageHeader, Forbidden } from "@/components/app/states"
+import { SettingsNav } from "@/components/app/settings-nav"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 
 export default async function TeamsPage({
   params,
 }: {
-  params: Promise<{ workspaceSlug: string }>;
+  params: Promise<{ workspaceSlug: string }>
 }) {
-  const { workspaceSlug } = await params;
-  const ctx = await resolveWorkspace(workspaceSlug);
-  if (!can(ctx, "teams.read")) return <Forbidden />;
+  const { workspaceSlug } = await params
+  const ctx = await resolveWorkspace(workspaceSlug)
+  if (!can(ctx, "teams.read")) return <Forbidden />
 
   const teams = await db.team.findMany({
     where: { workspaceId: ctx.workspaceId },
@@ -22,7 +22,7 @@ export default async function TeamsPage({
       memberships: { include: { membership: { include: { user: true } } }, take: 5 },
     },
     orderBy: { name: "asc" },
-  });
+  })
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:px-8">
@@ -47,12 +47,16 @@ export default async function TeamsPage({
                     <Badge variant="outline">{t._count.memberships} members</Badge>
                   </div>
                 </CardHeader>
-                {t.description && <CardContent><p className="text-sm text-muted-foreground">{t.description}</p></CardContent>}
+                {t.description && (
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground">{t.description}</p>
+                  </CardContent>
+                )}
               </Card>
             ))
           )}
         </div>
       </div>
     </div>
-  );
+  )
 }

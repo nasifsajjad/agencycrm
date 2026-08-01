@@ -1,45 +1,53 @@
-"use client";
+"use client"
 
-import * as React from "react";
-import { useRouter } from "next/navigation";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { createLeadAction } from "@/lib/crm-actions";
-import { toast } from "sonner";
+import * as React from "react"
+import { useRouter } from "next/navigation"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { createLeadAction } from "@/lib/crm-actions"
+import { toast } from "sonner"
 
 export function LeadFormDialog({
   workspaceSlug,
   trigger,
   defaultOpen,
 }: {
-  workspaceSlug: string;
-  trigger: React.ReactNode;
-  defaultOpen?: boolean;
+  workspaceSlug: string
+  trigger: React.ReactNode
+  defaultOpen?: boolean
 }) {
-  const [open, setOpen] = React.useState(defaultOpen ?? false);
-  const [error, setError] = React.useState<string | null>(null);
-  const [pending, setPending] = React.useState(false);
-  const router = useRouter();
+  const [open, setOpen] = React.useState(defaultOpen ?? false)
+  const [error, setError] = React.useState<string | null>(null)
+  const [pending, setPending] = React.useState(false)
+  const router = useRouter()
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setError(null);
-    setPending(true);
+    e.preventDefault()
+    setError(null)
+    setPending(true)
     try {
-      const res = await createLeadAction(workspaceSlug, new FormData(e.currentTarget));
+      const res = await createLeadAction(workspaceSlug, new FormData(e.currentTarget))
       if (res?.error) {
-        setError(res.error);
-        return;
+        setError(res.error)
+        return
       }
-      toast.success("Lead created");
-      setOpen(false);
-      router.refresh();
-      (e.target as HTMLFormElement).reset();
+      toast.success("Lead created")
+      setOpen(false)
+      router.refresh()
+      ;(e.target as HTMLFormElement).reset()
     } finally {
-      setPending(false);
+      setPending(false)
     }
   }
 
@@ -72,7 +80,11 @@ export function LeadFormDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="source">Source</Label>
-              <select id="source" name="source" className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm">
+              <select
+                id="source"
+                name="source"
+                className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+              >
                 <option>Inbound</option>
                 <option>Outbound</option>
                 <option>Referral</option>
@@ -92,12 +104,16 @@ export function LeadFormDialog({
           )}
           <DialogFooter>
             <DialogClose asChild>
-              <Button type="button" variant="outline">Cancel</Button>
+              <Button type="button" variant="outline">
+                Cancel
+              </Button>
             </DialogClose>
-            <Button type="submit" disabled={pending}>{pending ? "Creating…" : "Create lead"}</Button>
+            <Button type="submit" disabled={pending}>
+              {pending ? "Creating…" : "Create lead"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
-  );
+  )
 }

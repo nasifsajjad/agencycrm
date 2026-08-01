@@ -28,6 +28,7 @@ After loading demo data, the following accounts are created (password: `demo-pas
 - `rio@northstar.demo` — Contractor (copywriter)
 
 Plus two demo client portals (no auth in local mode):
+
 - `/portal/aurora-portal`
 - `/portal/helix-portal`
 

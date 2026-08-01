@@ -1,0 +1,70 @@
+# AgencyOS — Supabase local config
+# Mirrors supabase init output. Used by `supabase start` for local development.
+
+project_id = "agencyos"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "private", "audit", "storage"]
+extra_search_path = ["public", "private", "audit"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 17
+
+[db.pooler]
+enabled = true
+port = 54329
+pool_mode = "transaction"
+default_pool_size = 20
+max_client_conn = 100
+
+[realtime]
+enabled = true
+
+[studio]
+enabled = true
+port = 54323
+
+[inbucket]
+enabled = true
+port = 54324
+
+[storage]
+enabled = true
+file_size_limit = "100MiB"
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["http://localhost:3001/auth/callback", "http://localhost:3000/auth/callback"]
+jwt_expiry = 3600
+refresh_token_rotation_enabled = true
+refresh_token_reuse_interval = 10
+enable_signup = true
+enable_anonymous_sign_ins = false
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = false
+template = {}
+
+[auth.sms]
+enable_signup = false
+
+[auth.external.github]
+enabled = false
+
+[auth.external.google]
+enabled = false
+
+[edge_runtime]
+enabled = true
+policy = "per_worker"
+
+[analytics]
+enabled = false

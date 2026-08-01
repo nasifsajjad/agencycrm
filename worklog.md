@@ -1,9 +1,11 @@
 ---
+
 Task ID: agencyos-build
 Agent: main
 Task: Build AgencyOS — multi-tenant CRM and operating system for marketing agencies, per the uploaded build contract.
 
 Work Log:
+
 - Read the full AgencyOS build contract (1528 lines, 21 sections)
 - Initialized Next.js 16 sandbox environment with Prisma + SQLite
 - Designed and pushed a Prisma schema mirroring the contract data model (workspaces, memberships, roles, permissions, audit, CRM, clients, projects, tasks, approvals, time, finance, custom fields, automations, portals, knowledge)
@@ -31,6 +33,7 @@ Work Log:
 - Manually smoke-tested key routes — all return 200
 
 Stage Summary:
+
 - AgencyOS delivered as a single Next.js 16 app (sandbox adapter; see ADR 0001)
 - All P0 features from the contract are implemented with real functionality (not stubs)
 - Multi-tenant isolation enforced at the application layer via resolveWorkspace helper

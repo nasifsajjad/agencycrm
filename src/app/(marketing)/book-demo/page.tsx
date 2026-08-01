@@ -1,18 +1,23 @@
-import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Calendar, Clock, Users, CheckCircle2 } from "lucide-react";
-import { MarketingBadge } from "@/components/marketing/shell";
+import Link from "next/link"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Calendar, Clock, Users, CheckCircle2 } from "lucide-react"
+import { MarketingBadge } from "@/components/marketing/shell"
+import { BookDemoForm } from "@/components/marketing/book-demo-form"
 
-export const metadata = { title: "Book a demo" };
+export const metadata = { title: "Book a demo" }
 
 export default function BookDemoPage() {
   return (
     <div className="mx-auto max-w-5xl px-4 py-16 sm:px-6 lg:px-8">
       <div className="text-center">
         <MarketingBadge>Book a demo</MarketingBadge>
-        <h1 className="mt-4 text-4xl font-semibold tracking-tight sm:text-5xl">See AgencyOS in action</h1>
-        <p className="mt-4 text-lg text-muted-foreground">A 30-minute walkthrough, tailored to your agency&apos;s workflow.</p>
+        <h1 className="mt-4 text-4xl font-semibold tracking-tight sm:text-5xl">
+          See AgencyOS in action
+        </h1>
+        <p className="mt-4 text-lg text-muted-foreground">
+          A 30-minute walkthrough, tailored to your agency&apos;s workflow.
+        </p>
       </div>
 
       <div className="mt-12 grid gap-8 lg:grid-cols-2">
@@ -55,40 +60,17 @@ export default function BookDemoPage() {
             <CardTitle>Pick a time</CardTitle>
           </CardHeader>
           <CardContent>
-            <form className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Name</label>
-                <input className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm" placeholder="Your name" />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Work email</label>
-                <input type="email" className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm" placeholder="you@agency.com" />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Agency name</label>
-                <input className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm" placeholder="Acme Agency" />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Team size</label>
-                <select className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm">
-                  <option>1-5</option>
-                  <option>6-20</option>
-                  <option>21-50</option>
-                  <option>51-200</option>
-                  <option>200+</option>
-                </select>
-              </div>
-              <Button type="button" disabled className="w-full">
-                <Calendar className="mr-1 h-4 w-4" /> Schedule (demo)
-              </Button>
-              <p className="text-xs text-muted-foreground">Demo form. In production this would open a calendar picker.</p>
-            </form>
+            <BookDemoForm />
             <p className="mt-4 text-center text-xs text-muted-foreground">
-              Or explore on your own — <Link href="/sign-up" className="underline hover:text-foreground">start free</Link> and load demo data.
+              Or explore on your own —{" "}
+              <Link href="/sign-up" className="underline hover:text-foreground">
+                start free
+              </Link>{" "}
+              and load demo data.
             </p>
           </CardContent>
         </Card>
       </div>
     </div>
-  );
+  )
 }
