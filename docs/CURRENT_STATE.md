@@ -1,106 +1,133 @@
 # AgencyOS — Current State
 
-Updated 2026-08-01 after adapter, portal, and conversion verification. This
-document records observed results; it is not a release approval.
+Updated 2026-08-02, after a takeover review of the interrupted production-readiness
+run and ten remediation milestones. This records observed results. It is not a
+release approval.
 
-## Verdict: NOT READY
+## Verdict: NOT READY for production. Ready for staging verification.
 
-The repository is not ready for production. A deployable Supabase production
-environment, its credentials, and a complete end-to-end verification are all
-absent. More importantly, the application test suite does not cover the
-critical behaviours it claims to cover.
+Everything below marked unverified is unverified because this pass had no Docker,
+no Supabase CLI, and no provisioned project. That is the single largest gap and
+it gates most of the rest.
 
-## Verified locally
+## What was actually run
 
-- Split-deployment contract repaired: `apps/web` now sends sign-in, sign-up,
-  onboarding, demo-to-app, and authenticated-app links to the validated
-  `NEXT_PUBLIC_APP_URL` origin. When unset, local development safely defaults to
-  `http://localhost:3001`. `apps/app` owns the authentication and onboarding
-  routes.
-- Authentication redirect targets are accepted only as app-local paths.
-  `javascript:`, `data:`, protocol-relative, malformed, backslash-based, and
-  untrusted external targets fall back to `/` (or `/app` in the client form).
-- Exact verification commands and outcomes:
-  - `pnpm exec vitest run tests/unit --reporter=default` — PASS, 4 files and 29
-    tests.
-  - `pnpm lint` — PASS.
-  - `pnpm --dir apps/web lint` — PASS.
-  - `pnpm --dir apps/app lint` — PASS.
-  - `pnpm --dir apps/web typecheck` — PASS.
-  - `pnpm --dir apps/app typecheck` — PASS.
-  - `pnpm --dir apps/web build` — PASS, 18 marketing routes generated.
-  - `pnpm --dir apps/app build` — PASS, 22 authenticated/app/portal routes
-    generated.
-  - `git diff --check` — PASS.
-- Cross-application link audit command:
-  `rg -n --glob '!**/.next/**' --glob '!**/node_modules/**' 'href=["\`](/(sign-in|sign-up|onboarding|app)|/w/)|redirect\(["\`](/(sign-in|sign-up|onboarding|app)|/w/)' apps/web`
-  — no matches. App-owned local routes remain intentionally relative inside
-  `apps/app`.
-- The request-path code in `apps/app` uses `@supabase/ssr`, PostgREST, and
-  Supabase Storage; it does not import Prisma, SQLite, bcrypt, or a custom JWT
-  implementation.
-- The local Docker Supabase Postgres instance was exercised with its actual
-  `authenticated`, `anon`, and `service_role` database roles and
-  `request.jwt.claim.sub` claims. The behavioral SQL test passed for workspace
-  read/insert isolation, client-portal isolation, Storage object isolation,
-  anonymous inquiry privacy, and the intentional service-role bypass.
-- Root and both deployable apps' TypeScript checks, ESLint, focused unit tests,
-  and separate Next production builds pass under Node 24.
-- Verification repairs added in this pass: immutable workspace owner/ID are
-  enforced by a Postgres trigger; user mutations can enqueue RLS-scoped outbox
-  events; the worker uses a service-role client and fails closed when it is not
-  configured; notification count is implemented in the adapter; and portal
-  request mutations no longer trust browser-supplied workspace or client IDs.
+Executed in this environment, with results:
 
-## Blocking findings
+| Check                                         | Result                                                   |
+| --------------------------------------------- | -------------------------------------------------------- |
+| `pnpm install --frozen-lockfile`              | pass                                                     |
+| `pnpm typecheck` (root + both apps)           | pass                                                     |
+| `eslint .`                                    | pass, 0 problems                                         |
+| `prettier --check`                            | pass (repo formatted; it previously failed on 250 files) |
+| `vitest` unit + integration + non-DB security | pass, 93 tests                                           |
+| `vitest` DB-backed security                   | **fail — no Docker**, by design                          |
+| `apps/web` production build                   | pass, 18 routes                                          |
+| `apps/app` production build                   | pass, 41 routes                                          |
+| `playwright` e2e                              | **not run** — needs both dev servers and a database      |
 
-- `.env` contains only a legacy `DATABASE_URL`. There is no configured
-  Supabase URL, publishable key, service-role key, CRON secret, email provider,
-  webhook secret, or production project to verify. No remote environment was
-  contacted or deployed.
-- The automated tests do not execute authentication, invitation acceptance,
-  portal authorization as a real client identity, exports, reports, custom
-  fields, notifications, automation execution, or complete critical user
-  workflows. The Playwright configuration starts the obsolete root app with
-  Bun (which is not installed in this environment), not the two deployable
-  apps.
-- The database adapter deliberately emulates an ORM but lacks real
-  transactional semantics for generic callbacks; production multi-write paths
-  must use narrow PostgreSQL RPCs. The adapter now rejects unsupported `every`
-  relation predicates, handles `none`/`isNot`, validates projections through
-  PostgREST, returns empty `findMany` results correctly, and preflights single
-  row writes to prevent partial multi-row mutation.
-- Email and webhook automation actions intentionally throw because delivery
-  adapters are not implemented/configured. Condition trees are not evaluated.
-- Legacy Prisma/SQLite/custom-JWT artifacts remain in the repository and
-  historical documentation. They are not on the `apps/app` request path, but
-  their presence makes the root application and test suite misleading.
+## Not verified, and why
 
-## Additional observed repairs in this verification pass
+- **No migration has been executed.** Migrations 0021–0025 were written in this
+  pass and none has been applied to any database. The chain has been read
+  end-to-end for ordering, forward references, duplicate objects and
+  in-transaction enum use, and no problem was found statically — but static
+  reading is not a reset. `supabase db reset` from empty is the first thing to
+  do next.
+- **No RLS test has been executed.** `supabase/tests/rls_behavior.sql` and
+  `release_behavior.sql` are now wired into the vitest suite, and both fail
+  loudly without Docker rather than skipping.
+- **No environment exists.** There is no Supabase project, no service-role key,
+  no `CRON_SECRET`, no email provider. `.env.example` documents the full
+  contract.
+- **No deployment has been performed.**
 
-- `packages/database/src/adapter.ts` is the shared adapter used by both
-  deployable apps; Vitest now resolves the workspace package directly.
-- Unit adapter coverage is 5 files and 34 tests; the integration CSV suite is
-  1 file and 4 tests; security coverage is 3 files and 7 tests.
-- Migrations 0017–0019 were applied successfully to the local
-  `supabase_db_agencyos-local` Postgres container. `supabase/tests/release_behavior.sql`
-  passed with transaction rollback, atomic deal conversion, retry idempotency,
-  and suspended-owner rejection.
-- Client portal approval decisions now use a portal-scoped action and an RPC;
-  deliverable visibility is checked against the explicit client, not workspace
-  membership. Portal requests use the scoped RPC and emit an audit event.
-- Won-deal conversion is exposed in the CRM board and uses an atomic RPC that
-  creates/reuses the client and creates the onboarding project/task.
+## Fixed in this pass
 
-## Required before re-verification
+Security, highest severity first:
 
-1. Set `NEXT_PUBLIC_APP_URL` to the deployed authenticated-app origin in the
-   `apps/web` production environment. The code default is intentionally only
-   for local development; no deployment was performed in this pass.
-2. Provision a non-production Supabase project with Auth, Postgres migrations,
-   Storage buckets/policies, service role, cron secret, and delivery adapters.
-3. Replace the root-app Playwright smoke tests with authenticated E2E coverage
-   against `apps/web` and `apps/app`, including invitations, portal identities,
-   Storage, exports, notifications, reports, custom fields, and automation.
-4. Resolve the adapter’s missing transaction and relation-filter semantics,
-   then run the complete suite against the non-production Supabase project.
+1. **The `private` schema was exposed over PostgREST** (`config.toml`) while
+   0006 granted `execute on all functions in schema private` to `authenticated`.
+   That made `private.record_audit` — which trusts its `p_workspace_id` and
+   skips the membership check its public wrapper exists to perform — callable by
+   any logged-in user against any tenant, and `private.bootstrap_default_workspace`,
+   which grants an active Owner membership from its arguments, directly callable.
+   Migration 0021 revokes broadly, re-grants only the nine read-only predicates
+   RLS needs, and removes the schema from the exposed list.
+2. **`cleanup_expired_jobs` deleted export jobs across every tenant** with no
+   workspace filter and no permission check, granted to `authenticated`. Now
+   `service_role` only (0022).
+3. **Dashboard widgets ignored dashboard ownership and visibility.** Any member
+   could read, add to, and delete from another member's private dashboard. The
+   delete action had no `workspaceId` filter in application code at all. Fixed in
+   both layers (0022, `customization-actions.ts`).
+4. **`comment_mentions` had RLS enabled and zero policies**, so @mentions could
+   never be written or read; **`approval_steps` had no INSERT path**, so an
+   approval request could never be given approvers (0025).
+
+Correctness:
+
+5. **The outbox stranded work silently.** A worker that died mid-batch left
+   `locked_at` set forever, and those events were never retried, dead-lettered,
+   or counted. `attempts` only incremented in application code, so a
+   process-killing event never aged. "Dead letter" set `processed_at`, making
+   permanent failure indistinguishable from success. Migration 0023 adds
+   stale-lock reclaim, claim-time attempt counting, a real terminal state, and
+   the persisted error.
+6. **Deal-conversion replay returned the wrong records.** Only
+   `converted_client_id` was persisted; project and task were re-derived as
+   "earliest for this client", which is wrong whenever the client pre-existed or
+   a second deal for the same company converted (0024).
+7. **`formatMoney` lost precision.** It converted `bigint` to `Number` and
+   divided by 100 in floating point, in a module whose header promises no
+   floating-point arithmetic on money.
+8. **`formatMoneyShort` overstated every abbreviated figure by 100x**, comparing
+   minor-unit input against major-unit thresholds. `$15,000` rendered as `$1.5M`
+   on the reports and dashboard pages.
+9. **Password reset silently depended on a dashboard setting.**
+   `resetPasswordForEmail` was called with no `redirectTo`, so the link went
+   wherever the project's Site URL pointed. Both it and sign-up confirmation now
+   pass an explicit callback URL.
+10. **`bootstrapWorkspace` would have thrown on first use** — it called
+    `db.$transaction`, which is an unconditional throw. The module had no
+    importers and duplicated what `create_workspace` does in SQL. Removed.
+
+Integrity of the checks themselves:
+
+11. **The test suite tested code that ships nowhere.** vitest aliased `@` to the
+    root `src/` tree, an orphaned pre-monorepo fork. Six of nine test files
+    imported from it. The forks had diverged: the tested `isSafeRedirect` was a
+    weaker implementation than the one that ships. Repointing surfaced defects 7
+    and 8 immediately.
+12. **`pnpm typecheck` checked almost nothing** — root `tsconfig.json` excluded
+    `apps`, `packages` and `tests`.
+13. **`apps/web`, the public marketing site, shipped the entire CRM** — 94 dead
+    files including every server action and `lib/db.ts`, which exports the
+    service-role database handles.
+14. **There was no CI at all.** No `.github/` directory existed.
+
+## Known gaps, unfixed and deliberate
+
+- **Email delivery has no provider.** Invitations and password reset cannot
+  complete end-to-end anywhere until one is configured. This is a product
+  decision (`prd.md` §17), not an implementation gap.
+- **`packages/auth`, `packages/validation`, `packages/ui` are empty shells** — a
+  `package.json` each, declared as dependencies, imported by nothing. There is no
+  shared schema-validation layer; server actions hand-parse form input.
+- **Webhook SSRF has a TOCTOU window.** `delivery.ts` resolves DNS to check for
+  private ranges, then `fetch` resolves again. Low priority: webhook targets are
+  admin-configured, not user input.
+- **Realtime, file binary upload, CSV import/export execution, the automation
+  builder UI, custom-field editor UI and saved-view UI** remain unimplemented.
+
+## Next steps, in order
+
+1. `supabase start && supabase db reset` on an empty database. Apply 0001–0025.
+   Expect to fix something; nothing here has been executed.
+2. Run `pnpm test:security`. All three DB-backed suites must pass.
+3. Run `pnpm test:e2e` against that local stack.
+4. Provision a staging Supabase project; set every key in `.env.example`.
+5. Configure an email provider, then verify invitation and password-reset flows
+   end-to-end for the first time.
+6. Deploy both apps, set `NEXT_PUBLIC_APP_URL` on `apps/web` to the deployed app
+   origin, and confirm CI is green on `main`.

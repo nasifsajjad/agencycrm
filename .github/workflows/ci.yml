@@ -1,0 +1,148 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Builds must not reach a real project. These are structurally valid
+  # placeholders so Next can prerender; every request path fails closed
+  # without a reachable database, which is what we want in CI.
+  NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci-placeholder-publishable-key
+  NEXT_PUBLIC_APP_URL: http://localhost:3001
+
+jobs:
+  static:
+    name: Format, lint, typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm lint:web
+      - run: pnpm lint:app
+      # Covers the root project plus both apps. Before the fork removal the
+      # root tsconfig excluded apps, packages and tests, so this checked only
+      # code that shipped nowhere.
+      - run: pnpm typecheck
+
+  unit:
+    name: Unit and integration tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:unit
+      - run: pnpm test:integration
+      # Structural authorization guard; needs no database.
+      - run: pnpm exec vitest run tests/security/server-action-authorization.test.ts
+
+  database:
+    name: Migrations and RLS
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      # The whole point of this job: prove the chain applies to an empty
+      # database in filename order, every time, rather than assuming it.
+      - name: Start local Supabase and apply all migrations
+        run: supabase start
+
+      - name: Reset from migrations and seed
+        run: supabase db reset --no-seed
+
+      # These shell into the container and fail — never skip — if it is absent.
+      - name: RLS and tenant isolation
+        run: pnpm exec vitest run tests/security/rls-coverage.test.ts
+
+      - name: Release behaviour (conversion, replay identity, outbox lifecycle)
+        run: pnpm exec vitest run tests/security/release-behavior.test.ts
+
+      - name: Anonymous inquiry RLS
+        run: pnpm exec vitest run tests/security/anonymous-inquiry-rls.test.ts
+
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop --no-backup
+
+  build:
+    name: Build both apps
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build:web
+      - run: pnpm build:app
+
+  e2e:
+    name: End-to-end
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      # critical-flows.spec.ts asserts /api/health reports db: "ok", and the
+      # auth pages need a reachable Supabase to render meaningfully. Without
+      # this the suite fails for want of a database rather than for a defect.
+      - name: Start local Supabase
+        run: supabase start
+
+      - name: Export local Supabase credentials
+        run: |
+          echo "NEXT_PUBLIC_SUPABASE_URL=$(supabase status -o json | jq -r '.API_URL')" >> "$GITHUB_ENV"
+          echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$(supabase status -o json | jq -r '.ANON_KEY')" >> "$GITHUB_ENV"
+          echo "SUPABASE_SERVICE_ROLE_KEY=$(supabase status -o json | jq -r '.SERVICE_ROLE_KEY')" >> "$GITHUB_ENV"
+
+      - run: pnpm test:e2e:install
+      # playwright.config.ts boots both dev servers itself.
+      - run: pnpm test:e2e
+
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop --no-backup
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
