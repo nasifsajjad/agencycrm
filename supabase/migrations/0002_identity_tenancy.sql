@@ -69,6 +69,21 @@ create index if not exists workspaces_owner_id_idx on public.workspaces(owner_id
 create trigger workspaces_updated_at before update on public.workspaces
   for each row execute function public.tg_set_updated_at();
 
+-- Ownership is immutable after workspace creation. The previous RLS policy
+-- attempted to compare against the table row with an unqualified `id = id`,
+-- which is tautological and allowed a privileged editor to transfer ownership.
+create or replace function public.tg_preserve_workspace_owner()
+returns trigger language plpgsql set search_path = public as $$
+begin
+  if new.owner_id is distinct from old.owner_id then
+    raise exception 'Workspace owner cannot be changed';
+  end if;
+  return new;
+end;
+$$;
+create trigger workspaces_owner_immutable before update on public.workspaces
+  for each row execute function public.tg_preserve_workspace_owner();
+
 -- Permissions catalogue (stable keys)
 create table if not exists public.permissions (
   id uuid primary key default gen_random_uuid(),

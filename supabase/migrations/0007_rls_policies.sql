@@ -85,6 +85,11 @@ alter table public.client_portals enable row level security;
 alter table public.knowledge_pages enable row level security;
 alter table audit.events enable row level security;
 
+-- Supabase roles need table privileges in addition to RLS policies. Without
+-- these grants every policy is unreachable and authenticated API calls fail
+-- with "permission denied" before RLS is evaluated.
+grant select, insert, update, delete on all tables in schema public to authenticated;
+
 -- ============ Workspaces ============
 create policy workspaces_select on public.workspaces for select to authenticated
   using (private.is_workspace_member(id));
@@ -97,16 +102,16 @@ create policy workspaces_delete on public.workspaces for delete to authenticated
 -- ============ Profiles ============
 create policy profiles_select on public.profiles for select to authenticated
   using (
-    id = auth.uid()
-    or id in (
+    user_id = auth.uid()
+    or user_id in (
       select m.user_id from public.workspace_memberships m
       where m.status = 'active'
         and m.workspace_id in (select unnest(private.active_workspace_ids()))
     )
   );
 create policy profiles_update on public.profiles for update to authenticated
-  using (id = auth.uid())
-  with check (id = auth.uid());
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
 
 -- ============ Memberships ============
 create policy memberships_select on public.workspace_memberships for select to authenticated
@@ -486,9 +491,10 @@ create policy comments_select on public.comments for select to authenticated
     private.is_workspace_member(workspace_id) and (
       visibility = 'internal' or visibility = 'client' or visibility = 'restricted'
     )
-  ) or (
+    or (
     -- Portal users can see client-visible comments on entities they can access
     visibility = 'client' and private.can_access_entity(entity_type, entity_id)
+    )
   );
 create policy comments_insert on public.comments for insert to authenticated
   with check (private.is_workspace_member(workspace_id) and private.has_permission(workspace_id, 'comments.create'));
@@ -500,9 +506,11 @@ create policy comments_delete on public.comments for delete to authenticated
 
 -- Activity events
 create policy activity_events_select on public.activity_events for select to authenticated
-  using (private.is_workspace_member(workspace_id) and (
-    visibility = 'internal' or visibility = 'client'
-  )) or (visibility = 'client' and private.can_access_entity(entity_type, entity_id));
+  using (
+    (private.is_workspace_member(workspace_id) and (
+      visibility = 'internal' or visibility = 'client'
+    )) or (visibility = 'client' and private.can_access_entity(entity_type, entity_id))
+  );
 
 -- Notifications: per-user
 create policy notifications_select on public.notifications for select to authenticated
@@ -774,8 +782,10 @@ create policy client_portals_delete on public.client_portals for delete to authe
   using (private.has_permission(workspace_id, 'portal.manage'));
 
 create policy knowledge_pages_select on public.knowledge_pages for select to authenticated
-  using (private.is_workspace_member(workspace_id) and (visibility = 'internal' or visibility = 'client'))
-  or (visibility = 'client' and (client_id is null or private.can_access_client(client_id)));
+  using (
+    (private.is_workspace_member(workspace_id) and (visibility = 'internal' or visibility = 'client'))
+    or (visibility = 'client' and (client_id is null or private.can_access_client(client_id)))
+  );
 
 -- Project statuses, task statuses, project templates — workspace members can read; settings.manage for writes
 create policy project_statuses_select on public.project_statuses for select to authenticated

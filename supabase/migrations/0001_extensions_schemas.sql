@@ -31,7 +31,10 @@ do $$ begin
 exception when duplicate_object then null; end $$;
 
 do $$ begin
-  create type visibility as enum ('internal', 'client', 'restricted');
+  -- This enum is used by both record sharing and user-configurable views.
+  -- Keep every value used by the schema here; a narrower record-only enum
+  -- made the fresh migration fail when saved views/dashboards were created.
+  create type visibility as enum ('internal', 'client', 'restricted', 'private', 'workspace');
 exception when duplicate_object then null; end $$;
 
 do $$ begin

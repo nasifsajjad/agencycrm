@@ -102,7 +102,7 @@ begin
     (p_workspace_id, 'Finance', 'Finance team', true),
     (p_workspace_id, 'Client', 'Client portal user', true),
     (p_workspace_id, 'Guest Reviewer', 'Limited reviewer', true)
-  returning id into owner_role_id;
+  ;
 
   select id into owner_role_id from public.roles where workspace_id = p_workspace_id and name = 'Owner';
   select id into admin_role_id from public.roles where workspace_id = p_workspace_id and name = 'Administrator';
@@ -263,7 +263,7 @@ declare
 begin
   if owner_id is null then raise exception 'Not authenticated'; end if;
   if p_name is null or p_slug is null then raise exception 'Name and slug are required'; end if;
-  if not regexp_match(p_slug, '^[a-z0-9-]{2,40}$') then raise exception 'Invalid slug'; end if;
+  if p_slug !~ '^[a-z0-9-]{2,40}$' then raise exception 'Invalid slug'; end if;
 
   insert into public.workspaces (name, slug, owner_id, currency, timezone)
   values (p_name, p_slug, owner_id, coalesce(p_currency, 'USD'), coalesce(p_timezone, 'UTC'))

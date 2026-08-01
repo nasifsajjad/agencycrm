@@ -1,12 +1,16 @@
 -- AgencyOS — Migration 0008: Storage buckets and storage.objects policies
 
 -- Buckets (private)
-insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+-- Keep this portable across supported Supabase Storage schema revisions. The
+-- optional public/file-size/MIME columns are absent from older local images;
+-- omitting them preserves the private default and lets deployment configure
+-- limits through Storage without making migration execution version-specific.
+insert into storage.buckets (id, name)
 values
-  ('workspace-assets', 'workspace-assets', false, 104857600, null),
-  ('avatars', 'avatars', false, 10485760, null),
-  ('imports', 'imports', false, 52428800, null),
-  ('exports', 'exports', false, 52428800, null)
+  ('workspace-assets', 'workspace-assets'),
+  ('avatars', 'avatars'),
+  ('imports', 'imports'),
+  ('exports', 'exports')
 on conflict (id) do nothing;
 
 -- Helper: extract workspace id from storage path.
@@ -17,7 +21,11 @@ returns uuid
 language sql
 immutable
 as $$
-  select (split_part(path, '/', 1))::uuid;
+  select case
+    when split_part(path, '/', 1) ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+      then split_part(path, '/', 1)::uuid
+    else null
+  end;
 $$;
 
 -- Helper: is the current user an active workspace member for the bucket object's path?
@@ -31,11 +39,11 @@ declare
 begin
   -- Avatars: any authenticated user may read; only the owner may write to their own path
   if bucket_name = 'avatars' then
-    ws := private.workspace_id_from_path(object_path);
-    if ws is null then
-      -- Path "<user_id>/avatar.png"
-      return split_part(object_path, '/', 1) = auth.uid()::text;
+    if split_part(object_path, '/', 1) = auth.uid()::text then
+      return true;
     end if;
+    ws := private.workspace_id_from_path(object_path);
+    if ws is null then return false; end if;
     return private.is_workspace_member(ws);
   end if;
 
