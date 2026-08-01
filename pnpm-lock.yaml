@@ -388,6 +388,9 @@ importers:
       '@agencyos/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@agencyos/database':
+        specifier: workspace:*
+        version: link:../../packages/database
       '@agencyos/ui':
         specifier: workspace:*
         version: link:../../packages/ui

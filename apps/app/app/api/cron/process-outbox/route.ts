@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { timingSafeEqual } from "node:crypto"
 import { processOutbox } from "@/lib/automation"
 
 export const runtime = "nodejs"
@@ -16,13 +17,16 @@ export async function POST(req: NextRequest) {
   if (!cronSecret) {
     return NextResponse.json({ error: "CRON_SECRET is not configured" }, { status: 503 })
   }
-  if (authHeader !== `Bearer ${cronSecret}`) {
+  const presented = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : ""
+  const expected = Buffer.from(cronSecret)
+  const actual = Buffer.from(presented)
+  if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
-  const result = await processOutbox(50)
-  return NextResponse.json({ ok: true, ...result, time: new Date().toISOString() })
-}
-
-export async function GET(req: NextRequest) {
-  return POST(req)
+  try {
+    const result = await processOutbox(50)
+    return NextResponse.json({ ok: true, ...result, time: new Date().toISOString() }, { headers: { "Cache-Control": "no-store" } })
+  } catch {
+    return NextResponse.json({ error: "Outbox processing failed" }, { status: 503, headers: { "Cache-Control": "no-store" } })
+  }
 }

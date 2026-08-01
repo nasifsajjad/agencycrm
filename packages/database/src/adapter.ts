@@ -360,11 +360,14 @@ function scalarWhere(builder: any, model: string, key: string, value: unknown) {
   if ("equals" in value) scalarWhere(builder, model, key, value.equals)
   if ("in" in value) {
     if (!Array.isArray(value.in)) throw new Error(`'in' must be an array for ${model}.${key}`)
-    builder.in(column, value.in)
+    if (value.in.length === 0) builder.is("id", null)
+    else builder.in(column, value.in)
   }
   if ("notIn" in value) {
     if (!Array.isArray(value.notIn)) throw new Error(`'notIn' must be an array for ${model}.${key}`)
-    builder.not(column, "in", `(${value.notIn.map((item) => typeof item === "string" ? JSON.stringify(item) : String(item)).join(",")})`)
+    if (value.notIn.length > 0) {
+      builder.not(column, "in", `(${value.notIn.map((item) => typeof item === "string" ? JSON.stringify(item) : String(item)).join(",")})`)
+    }
   }
   if ("contains" in value) builder.ilike(column, `%${escapeLike(String(value.contains))}%`)
   if ("startsWith" in value) builder.ilike(column, `${escapeLike(String(value.startsWith))}%`)
@@ -389,28 +392,39 @@ async function matchingIds(model: string, where: JsonRecord, getClient: ClientFa
   return (rows as JsonRecord[]).map((row) => String(row.id))
 }
 
-async function relationIds(model: string, relation: Relation, filter: unknown, getClient: ClientFactory): Promise<string[]> {
+type RelationMatch = { ids: string[]; negate: boolean }
+
+async function relationIds(model: string, relation: Relation, filter: unknown, getClient: ClientFactory): Promise<RelationMatch> {
   if (!isRecord(filter)) throw new Error(`Invalid relation filter on ${model}`)
   const nested = "some" in filter || "none" in filter || "every" in filter || "is" in filter || "isNot" in filter ? filter : { is: filter }
+  const operators = ["some", "none", "every", "is", "isNot"].filter((operator) => operator in nested)
+  if (operators.length !== 1) throw new Error(`Relation ${model} requires exactly one predicate operator`)
   if (relation.foreignKey) {
-    const targetWhere = (nested.is ?? nested.isNot) as JsonRecord | undefined
+    if ("isNot" in nested) {
+      const targetWhere = nested.isNot as JsonRecord
+      if (!isRecord(targetWhere)) throw new Error(`Invalid isNot predicate on ${model}`)
+      return { ids: await matchingIds(relation.model, targetWhere, getClient), negate: true }
+    }
+    const targetWhere = nested.is as JsonRecord | undefined
     if (!targetWhere) throw new Error(`Unsupported relation predicate on ${model}`)
     const ids = await matchingIds(relation.model, targetWhere, getClient)
-    return ids
+    return { ids, negate: false }
   }
   if (relation.targetForeignKey) {
-    const predicate = nested.some ?? nested.none ?? nested.every
+    if ("every" in nested) throw new Error(`Relation ${model} does not support the 'every' predicate through PostgREST`)
+    const predicate = nested.some ?? nested.none
     if (!isRecord(predicate)) throw new Error(`To-many relation on ${model} requires some, none, or every`)
     const rows = await run(relation.model, "findMany", { where: predicate, select: { [relation.targetForeignKey]: true } }, getClient)
-    return (rows as JsonRecord[]).map((row) => String(row[relation.targetForeignKey!])).filter(Boolean)
+    return { ids: (rows as JsonRecord[]).map((row) => String(row[relation.targetForeignKey!])).filter(Boolean), negate: "none" in nested }
   }
   if (relation.junction) {
-    const targetWhere = (nested.some ?? nested.none ?? nested.every) as JsonRecord | undefined
+    if ("every" in nested) throw new Error(`Relation ${model} does not support the 'every' predicate through PostgREST`)
+    const targetWhere = (nested.some ?? nested.none) as JsonRecord | undefined
     if (!targetWhere) throw new Error(`Junction relation on ${model} requires some, none, or every`)
     const targetIds = await matchingIds(relation.model, targetWhere, getClient)
-    if (!targetIds.length) return []
+    if (!targetIds.length) return { ids: [], negate: "none" in nested }
     const links = await run(relation.junction.model, "findMany", { where: { [relation.junction.targetKey]: { in: targetIds } }, select: { [relation.junction.sourceKey]: true } }, getClient)
-    return (links as JsonRecord[]).map((row) => String(row[relation.junction!.sourceKey])).filter(Boolean)
+    return { ids: (links as JsonRecord[]).map((row) => String(row[relation.junction!.sourceKey])).filter(Boolean), negate: "none" in nested }
   }
   throw new Error(`Relation ${model} is not queryable`)
 }
@@ -438,9 +452,12 @@ async function applyWhere(builder: any, model: string, where: JsonRecord | undef
     }
     const relation = RELATIONS[model]?.[key]
     if (relation) {
-      const ids = await relationIds(model, relation, value, getClient)
-      if (isRecord(value) && "none" in value) builder.not("id", "in", `(${ids.join(",") || ZERO_UUID})`)
-      else builder.in(relation.foreignKey ? columnName(model, relation.foreignKey) : "id", ids.length ? ids : [ZERO_UUID])
+      const match = await relationIds(model, relation, value, getClient)
+      const column = relation.foreignKey ? columnName(model, relation.foreignKey) : "id"
+      if (match.negate) {
+        if (match.ids.length > 0) builder.not(column, "in", `(${match.ids.map((id) => JSON.stringify(id)).join(",")})`)
+      } else if (match.ids.length > 0) builder.in(column, match.ids)
+      else builder.is("id", null)
       continue
     }
     scalarWhere(builder, model, key, value)
@@ -465,9 +482,26 @@ function relationSpec(model: string, specification: JsonRecord | undefined) {
   const selected: JsonRecord = {}
   for (const [key, value] of Object.entries(specification)) {
     if (key === "_count" || key in relations) selected[key] = value
-    else if (value !== true) continue
+    else if (value !== true) throw new Error(`Invalid projection for ${model}.${key}`)
   }
   return selected
+}
+
+function projection(model: string, select: JsonRecord | undefined): string {
+  if (!select) return "*"
+  const relations = RELATIONS[model] ?? {}
+  const columns = new Set<string>(["id"])
+  for (const [key, value] of Object.entries(select)) {
+    if (key === "_count") continue
+    if (key in relations) {
+      const relation = relations[key]
+      if (relation.foreignKey) columns.add(columnName(model, relation.foreignKey))
+      continue
+    }
+    if (value !== true) throw new Error(`Invalid scalar projection for ${model}.${key}`)
+    columns.add(columnName(model, key))
+  }
+  return Array.from(columns).join(",")
 }
 
 async function hydrate(model: string, row: JsonRecord, specification: JsonRecord | undefined, getClient: ClientFactory) {
@@ -488,19 +522,18 @@ async function hydrate(model: string, row: JsonRecord, specification: JsonRecord
     }
     const relation = relations[name]
     if (!relation) throw new Error(`Unsupported relation include ${model}.${name}`)
-    const nested = requested === true ? {} : requested
-    if (!isRecord(nested)) throw new Error(`Invalid include specification for ${model}.${name}`)
-    const include = relationSpec(relation.model, nested.include)
+    const nested: JsonRecord = requested === true ? {} : isRecord(requested) ? requested : (() => { throw new Error(`Invalid include specification for ${model}.${name}`) })()
+    const include = relationSpec(relation.model, nested.include as JsonRecord | undefined)
     const select = nested.select as JsonRecord | undefined
     if (relation.junction) {
       const links = await run(relation.junction.model, "findMany", { where: { [relation.junction.sourceKey]: row.id }, select: { [relation.junction.targetKey]: true } }, getClient) as JsonRecord[]
       const ids = links.map((link) => link[relation.junction!.targetKey]).filter(Boolean)
-      row[name] = ids.length ? await run(relation.model, "findMany", { where: { id: { in: ids } }, include, select, orderBy: nested.orderBy, take: nested.take }, getClient) : []
+      row[name] = ids.length ? await run(relation.model, "findMany", { where: { id: { in: ids } }, include, select, orderBy: nested.orderBy as QueryArgs["orderBy"], take: nested.take as number | undefined }, getClient) : []
     } else if (relation.foreignKey) {
       const foreignId = row[relation.foreignKey]
       row[name] = foreignId ? await run(relation.model, "findFirst", { where: { id: foreignId }, include, select }, getClient) : null
     } else if (relation.targetForeignKey) {
-      row[name] = await run(relation.model, "findMany", { where: { [relation.targetForeignKey]: row.id, ...(isRecord(nested.where) ? nested.where : {}) }, include, select, orderBy: nested.orderBy, take: nested.take, skip: nested.skip }, getClient)
+      row[name] = await run(relation.model, "findMany", { where: { [relation.targetForeignKey]: row.id, ...(isRecord(nested.where) ? nested.where : {}) }, include, select, orderBy: nested.orderBy as QueryArgs["orderBy"], take: nested.take as number | undefined, skip: nested.skip as number | undefined }, getClient)
     }
   }
   return row
@@ -536,6 +569,11 @@ async function run(model: string, operation: string, args: QueryArgs = {}, getCl
   }
   if (operation === "update" || operation === "updateMany") {
     if (args.data === undefined) throw new Error(`${model}.${operation} requires data`)
+    if (operation === "update") {
+      const matches = await run(model, "findMany", { where, select: { id: true }, take: 2 }, getClient) as JsonRecord[]
+      if (matches.length === 0) throw new Error(`${model} not found for update`)
+      if (matches.length > 1) throw new Error(`${model} update requires a unique where filter`)
+    }
     const query = tableClient.update(toSql(model, args.data)).select("*")
     await applyWhere(query, model, where, getClient)
     const result = await query
@@ -546,6 +584,11 @@ async function run(model: string, operation: string, args: QueryArgs = {}, getCl
     return toModel(model, result.data[0])
   }
   if (operation === "delete" || operation === "deleteMany") {
+    if (operation === "delete") {
+      const matches = await run(model, "findMany", { where, select: { id: true }, take: 2 }, getClient) as JsonRecord[]
+      if (matches.length === 0) throw new Error(`${model} not found for delete`)
+      if (matches.length > 1) throw new Error(`${model} delete requires a unique where filter`)
+    }
     const query = tableClient.delete().select("*")
     await applyWhere(query, model, where, getClient)
     const result = await query
@@ -573,7 +616,7 @@ async function run(model: string, operation: string, args: QueryArgs = {}, getCl
     return result.count ?? 0
   }
   if (!["findMany", "findFirst", "findUnique", "findFirstOrThrow", "findUniqueOrThrow"].includes(operation)) throw new Error(`Unsupported database operation '${operation}'`)
-  const query = tableClient.select("*")
+  const query = tableClient.select(projection(model, args.select))
   await applyWhere(query, model, where, getClient)
   for (const item of orderExpression(model, args.orderBy)) query.order(item.column, { ascending: item.ascending })
   if (args.skip !== undefined) query.range(args.skip, args.skip + Math.max((args.take ?? 1000) - 1, 0))
@@ -582,12 +625,15 @@ async function run(model: string, operation: string, args: QueryArgs = {}, getCl
   if (result.error) throw result.error
   if ((operation === "findUnique" || operation === "findUniqueOrThrow") && (result.data?.length ?? 0) > 1) throw new Error(`${model} unique filter matched multiple records`)
   const specification = relationSpec(model, args.include ?? args.select)
-  const hydrated = []
+  const hydrated: JsonRecord[] = []
   for (const raw of result.data ?? []) hydrated.push(await hydrate(model, toModel(model, raw) as JsonRecord, specification, getClient))
   const rows = hydrated.map((row) => pickFields(row, args.select))
   if (operation === "findUnique" || operation === "findFirst") return rows[0] ?? null
-  if (!rows[0]) throw new Error(`${model} not found`)
-  return rows[0]
+  if (operation === "findUniqueOrThrow" || operation === "findFirstOrThrow") {
+    if (!rows[0]) throw new Error(`${model} not found`)
+    return rows[0]
+  }
+  return rows
 }
 
 export type Delegate = {
@@ -627,4 +673,3 @@ export async function callDatabaseRpc<T = unknown>(getClient: ClientFactory, fun
   if (error) throw error
   return data as T
 }
-

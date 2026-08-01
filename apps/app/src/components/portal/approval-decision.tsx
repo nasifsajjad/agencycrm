@@ -6,15 +6,13 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Check, X } from "lucide-react"
-import { decideApprovalAction } from "@/lib/crm-actions"
+import { decidePortalApprovalAction } from "@/lib/portal-actions"
 import { toast } from "sonner"
 
 export function PortalApprovalDecision({
-  workspaceSlug,
   approvalId,
   portalSlug,
 }: {
-  workspaceSlug: string
   approvalId: string
   portalSlug: string
 }) {
@@ -25,7 +23,7 @@ export function PortalApprovalDecision({
   async function decide(decision: "approved" | "changes_requested") {
     setPending(true)
     try {
-      const res = await decideApprovalAction(workspaceSlug, approvalId, decision, note)
+      const res = await decidePortalApprovalAction(portalSlug, approvalId, decision, note)
       if (res?.error) {
         toast.error(res.error)
         return

@@ -68,7 +68,6 @@ export default async function PortalApprovalsPage({
               {a.status === "pending" && (
                 <div className="mt-4 border-t border-border/40 pt-3">
                   <PortalApprovalDecision
-                    workspaceSlug={portal.workspace.slug}
                     approvalId={a.id}
                     portalSlug={portalSlug}
                   />

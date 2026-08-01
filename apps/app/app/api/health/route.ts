@@ -15,13 +15,13 @@ export async function GET() {
       latencyMs: Date.now() - startedAt,
       version: "0.1.0",
     })
-  } catch (e: any) {
+  } catch {
     return NextResponse.json(
       {
         status: "degraded",
         time: new Date().toISOString(),
         db: "error",
-        error: e?.message ?? "unknown",
+        error: "database unavailable",
         latencyMs: Date.now() - startedAt,
         version: "0.1.0",
       },

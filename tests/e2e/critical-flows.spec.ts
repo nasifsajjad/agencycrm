@@ -1,5 +1,11 @@
 import { test, expect } from "@playwright/test"
 
+const appOrigin = process.env.PLAYWRIGHT_APP_URL ?? "http://localhost:3001"
+
+function appPath(path: string): string {
+  return `${appOrigin}${path}`
+}
+
 test.describe("AgencyOS critical flows", () => {
   test("homepage renders with hero, capabilities, and footer", async ({ page }) => {
     await page.goto("/")
@@ -43,44 +49,40 @@ test.describe("AgencyOS critical flows", () => {
   })
 
   test("sign-in page renders form", async ({ page }) => {
-    await page.goto("/sign-in")
+    await page.goto(appPath("/sign-in"))
     await expect(page.getByLabel("Email")).toBeVisible()
     await expect(page.getByLabel("Password")).toBeVisible()
     await expect(page.getByRole("button", { name: /Sign in/ })).toBeVisible()
   })
 
   test("sign-up page renders form with workspace field", async ({ page }) => {
-    await page.goto("/sign-up")
+    await page.goto(appPath("/sign-up"))
     await expect(page.getByLabel("Email")).toBeVisible()
     await expect(page.getByLabel("Password")).toBeVisible()
     await expect(page.getByLabel("Workspace name")).toBeVisible()
   })
 
   test("unauthenticated /w/slug redirects to sign-in", async ({ page }) => {
-    await page.goto("/w/northstar")
-    await expect(page).toHaveURL(/\/sign-in/)
+    await page.goto(appPath("/w/northstar"))
+    await expect(page).toHaveURL(/:3001\/sign-in/)
   })
 
   test("unauthenticated /app redirects to sign-in", async ({ page }) => {
-    await page.goto("/app")
-    await expect(page).toHaveURL(/\/sign-in/)
+    await page.goto(appPath("/app"))
+    await expect(page).toHaveURL(/:3001\/sign-in/)
   })
 
   test("health endpoint returns ok", async ({ request }) => {
-    const res = await request.get("/api/health")
+    const res = await request.get(appPath("/api/health"))
     expect(res.ok()).toBeTruthy()
     const body = await res.json()
     expect(body.status).toBe("ok")
     expect(body.db).toBe("ok")
   })
 
-  test("client portal renders for a known slug (no auth required in local mode)", async ({
-    page,
-  }) => {
-    // Depends on seeded demo data; if absent, will 404 — that's fine for the smoke test
-    const res = await page.goto("/portal/aurora-portal")
-    if (res && res.ok()) {
-      await expect(page.locator("body")).not.toContainText("Application error")
-    }
+  test("client portal does not expose an unauthenticated workspace", async ({ page }) => {
+    const res = await page.goto(appPath("/portal/aurora-portal"))
+    expect(res).not.toBeNull()
+    await expect(page.locator("body")).not.toContainText("Application error")
   })
 })

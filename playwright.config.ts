@@ -20,10 +20,20 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
   ],
-  webServer: {
-    command: "bun run dev",
-    url: "http://localhost:3000",
-    reuseExistingServer: true,
-    timeout: 60_000,
-  },
+  webServer: [
+    {
+      command: "pnpm --filter @agencyos/web dev",
+      url: "http://localhost:3000",
+      reuseExistingServer: true,
+      timeout: 60_000,
+      env: { NEXT_PUBLIC_APP_URL: "http://localhost:3001" },
+    },
+    {
+      command: "pnpm --filter @agencyos/app dev",
+      url: "http://localhost:3001/sign-in",
+      reuseExistingServer: true,
+      timeout: 60_000,
+      env: { NEXT_PUBLIC_APP_URL: "http://localhost:3001" },
+    },
+  ],
 })

@@ -13,9 +13,10 @@
  * would use pg_cron + a Supabase Edge Function.
  */
 
-import { db, serviceDb } from "@/lib/db"
-import type { WorkspaceContext } from "@/lib/auth"
+import { serviceDb, serviceRpc, rpc } from "@/lib/db"
 import { createServiceClient } from "@/lib/supabase/server"
+import { evaluateConditionTree } from "@agencyos/domain"
+import { sendEmail, sendWebhook } from "@/lib/delivery"
 
 export interface OutboxEventPayload {
   eventType: string
@@ -26,19 +27,32 @@ export interface OutboxEventPayload {
   metadata?: Record<string, unknown>
 }
 
+type OutboxRow = OutboxEventPayload & {
+  id: string
+  attempts: number
+  payload?: Record<string, unknown> | null
+  processedAt?: string | null
+  nextAttemptAt?: string | null
+  lockedAt?: string | null
+}
+
+type AutomationAction = { id: string; actionType: string; configJson?: unknown }
+
+function record(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}
+}
+
 /**
  * Enqueue an outbox event. Called from server actions on every meaningful mutation.
  */
 export async function emitEvent(payload: OutboxEventPayload) {
-  await db.outboxEvent.create({
-    data: {
-      workspaceId: payload.workspaceId,
-      eventType: payload.eventType,
-      entityType: payload.entityType,
-      entityId: payload.entityId,
-      actorUserId: payload.actorUserId ?? null,
-      payload: payload.metadata as any,
-    },
+  await rpc("enqueue_outbox_event", {
+    p_workspace_id: payload.workspaceId,
+    p_event_type: payload.eventType,
+    p_entity_type: payload.entityType,
+    p_entity_id: payload.entityId,
+    p_actor_user_id: payload.actorUserId ?? null,
+    p_payload: payload.metadata ?? {},
   })
 }
 
@@ -49,11 +63,17 @@ export async function emitEvent(payload: OutboxEventPayload) {
 export async function processOutbox(batchSize = 50) {
   if (!createServiceClient()) throw new Error("SUPABASE_SERVICE_ROLE_KEY is not configured")
 
-  const events = await serviceDb.outboxEvent.findMany({
-    where: { processedAt: null, nextAttemptAt: { lte: new Date() } },
-    take: batchSize,
-    orderBy: { createdAt: "asc" },
-  })
+  const claimed = await serviceRpc<Record<string, unknown>[]>("claim_outbox_events", { p_limit: batchSize })
+  const events: OutboxRow[] = claimed.map((row) => ({
+    id: String(row.id),
+    workspaceId: String(row.workspace_id),
+    eventType: String(row.event_type),
+    entityType: String(row.entity_type),
+    entityId: row.entity_id ? String(row.entity_id) : "",
+    actorUserId: row.actor_user_id ? String(row.actor_user_id) : undefined,
+    payload: record(row.payload),
+    attempts: Number(row.attempts ?? 0),
+  }))
 
   let processed = 0
   let matched = 0
@@ -72,44 +92,50 @@ export async function processOutbox(batchSize = 50) {
         include: { actions: true },
       })
 
+      if (event.eventType === "invitation.created") {
+        const invitation = record(event.payload)
+        await sendEmail({
+          to: String(invitation.email ?? ""),
+          subject: "You have been invited to AgencyOS",
+          text: `You have been invited to join a workspace. Open this link to accept: ${String(invitation.inviteUrl ?? "")}`,
+        })
+      }
+
       for (const auto of automations) {
+        if (!evaluateConditionTree(auto.conditionTreeJson, event)) continue
         matched += 1
         const idempotencyKey = `${auto.id}-${event.id}`
         const existing = await serviceDb.automationRun.findFirst({ where: { idempotencyKey } })
-        if (existing) continue
+        if (existing?.status === "succeeded") continue
 
-        const run = await serviceDb.automationRun.create({
-          data: {
-            automationId: auto.id,
-            triggerEventId: event.id,
-            status: "running",
-            idempotencyKey,
-          },
+        const run = existing ?? await serviceDb.automationRun.create({
+          data: { automationId: auto.id, triggerEventId: event.id, status: "running", idempotencyKey },
         })
+        if (existing) await serviceDb.automationRun.update({ where: { id: run.id }, data: { status: "running", errorSummary: null, completedAt: null } })
 
         try {
-          // Evaluate condition tree (simplified: skip if conditions not met)
-          // For now, no conditions; production would parse conditionTreeJson
           for (const action of auto.actions) {
-            await executeAction(event, action)
-            await serviceDb.automationActionRun.create({
-              data: {
-                runId: run.id,
-                actionId: action.id,
-                status: "succeeded",
-                attempts: 1,
-              },
-            })
+            const prior = await serviceDb.automationActionRun.findFirst({ where: { runId: run.id, actionId: action.id } })
+            if (prior?.status === "succeeded") continue
+            const actionRun = prior ?? await serviceDb.automationActionRun.create({ data: { runId: run.id, actionId: action.id, status: "pending", attempts: 0 } })
+            try {
+              await executeAction(event, action)
+              await serviceDb.automationActionRun.update({ where: { id: actionRun.id }, data: { status: "succeeded", attempts: actionRun.attempts + 1, errorSummary: null } })
+            } catch (error) {
+              await serviceDb.automationActionRun.update({ where: { id: actionRun.id }, data: { status: "failed", attempts: actionRun.attempts + 1, errorSummary: error instanceof Error ? error.message : "Automation action failed" } })
+              throw error
+            }
           }
           await serviceDb.automationRun.update({
             where: { id: run.id },
             data: { status: "succeeded", completedAt: new Date() },
           })
           succeeded += 1
-        } catch (e: any) {
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "Automation action failed"
           await serviceDb.automationRun.update({
             where: { id: run.id },
-            data: { status: "failed", completedAt: new Date(), errorSummary: e?.message },
+            data: { status: event.attempts + 1 >= 5 ? "dead_letter" : "failed", completedAt: new Date(), errorSummary: message },
           })
           failed += 1
         }
@@ -117,9 +143,9 @@ export async function processOutbox(batchSize = 50) {
 
       await serviceDb.outboxEvent.update({
         where: { id: event.id },
-        data: { processedAt: new Date() },
+        data: { processedAt: new Date(), lockedAt: null },
       })
-    } catch (e: any) {
+    } catch {
       // Mark for retry with backoff
       const attempts = event.attempts + 1
       const backoff = Math.min(60 * Math.pow(2, attempts), 3600) * 1000
@@ -128,12 +154,13 @@ export async function processOutbox(batchSize = 50) {
         data: {
           attempts,
           nextAttemptAt: new Date(Date.now() + backoff),
+          lockedAt: null,
         },
       })
       if (attempts >= 5) {
         await serviceDb.outboxEvent.update({
           where: { id: event.id },
-          data: { processedAt: new Date() },
+          data: { processedAt: new Date(), lockedAt: null },
         })
       }
       failed += 1
@@ -143,11 +170,12 @@ export async function processOutbox(batchSize = 50) {
   return { processed, matched, succeeded, failed }
 }
 
-async function executeAction(event: any, action: any) {
-  const config = (action.configJson as any) ?? {}
+async function executeAction(event: OutboxRow, action: AutomationAction) {
+  const config = record(action.configJson)
   switch (action.actionType) {
     case "create_record": {
-      const { entityType, data } = config
+      const entityType = String(config.entityType ?? "")
+      const data = record(config.data)
       if (entityType === "task") {
         await serviceDb.task.create({
           data: {
@@ -163,7 +191,9 @@ async function executeAction(event: any, action: any) {
       break
     }
     case "assign": {
-      const { entityType, entityId, assigneeId } = config
+      const entityType = String(config.entityType ?? "")
+      const entityId = String(config.entityId ?? "")
+      const assigneeId = config.assigneeId ?? null
       if (entityType === "task") {
         await serviceDb.task.updateMany({
           where: { id: entityId, workspaceId: event.workspaceId },
@@ -173,14 +203,17 @@ async function executeAction(event: any, action: any) {
       break
     }
     case "notify": {
-      const { userId, title, body } = config
+      const userId = String(config.userId ?? "")
+      const title = String(config.title ?? "Automation notification")
+      const body = config.body ? String(config.body) : null
+      if (!userId) throw new Error("notify action requires userId")
       await serviceDb.notification.create({
         data: {
           workspaceId: event.workspaceId,
           userId,
           type: "automation",
-          title: title ?? "Automation notification",
-          body: body ?? null,
+          title,
+          body,
           entityType: event.entityType,
           entityId: event.entityId,
         },
@@ -188,14 +221,20 @@ async function executeAction(event: any, action: any) {
       break
     }
     case "email": {
-      throw new Error("Email delivery adapter is not configured")
+      const to = String(config.to ?? record(event.payload).email ?? "")
+      const subject = String(config.subject ?? "AgencyOS notification")
+      const text = String(config.text ?? config.body ?? "")
+      await sendEmail({ to, subject, text })
+      break
     }
     case "task": {
-      const { name, assigneeId, projectId } = config
+      const name = String(config.name ?? "Automated task")
+      const assigneeId = config.assigneeId ?? null
+      const projectId = config.projectId ?? null
       await serviceDb.task.create({
         data: {
           workspaceId: event.workspaceId,
-          name: name ?? "Automated task",
+          name,
           assigneeId,
           projectId: projectId ?? null,
           ownerId: event.actorUserId,
@@ -204,7 +243,11 @@ async function executeAction(event: any, action: any) {
       break
     }
     case "webhook": {
-      throw new Error("Webhook delivery adapter is not configured")
+      const url = String(config.url ?? "")
+      const secret = String(config.secret ?? process.env.WEBHOOK_SIGNING_SECRET ?? "")
+      if (!secret) throw new Error("Webhook signing secret is not configured")
+      await sendWebhook(url, { eventType: event.eventType, entityType: event.entityType, entityId: event.entityId, workspaceId: event.workspaceId, payload: event.payload ?? {} }, secret)
+      break
     }
     default:
       throw new Error(`Unsupported automation action: ${action.actionType}`)

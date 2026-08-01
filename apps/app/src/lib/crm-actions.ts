@@ -8,6 +8,8 @@ import type { Permission } from "@/lib/permissions"
 import { resolveWorkspace } from "@/lib/server"
 import { audit } from "@/lib/audit"
 import { normalizeEmail } from "@/lib/auth"
+import { emitEvent } from "@/lib/automation"
+import { applicationUrl } from "@agencyos/config"
 
 async function withPermission<T>(
   slug: string,
@@ -284,6 +286,25 @@ export async function moveDealAction(slug: string, dealId: string, stageId: stri
     })
     revalidatePath(`/w/${slug}/crm/deals`)
     return updated
+  })
+}
+
+export async function convertDealToClientAction(slug: string, dealId: string) {
+  return withPermission(slug, "clients.create", async () => {
+    const ctx = await resolveWorkspace(slug)
+    const deal = await db.deal.findFirst({ where: { id: dealId, workspaceId: ctx.workspaceId }, include: { stage: true, company: true } })
+    if (!deal) throw new Error("Deal not found.")
+    if (!deal.stage?.isWon) throw new Error("Only won deals can be converted.")
+    const result = await rpc<Record<string, unknown>>("convert_deal_to_client", {
+      p_workspace_id: ctx.workspaceId,
+      p_deal_id: dealId,
+      p_client_name: deal.company?.name ?? deal.name,
+      p_client_code: null,
+    })
+    revalidatePath(`/w/${slug}/crm/deals`)
+    revalidatePath(`/w/${slug}/clients`)
+    revalidatePath(`/w/${slug}/projects`)
+    return result
   })
 }
 
@@ -692,8 +713,18 @@ export async function inviteMemberAction(slug: string, formData: FormData) {
       entityId: String(invitation.id),
       after: { email, role: roleName },
     })
+    await emitEvent({
+      eventType: "invitation.created",
+      entityType: "invitation",
+      entityId: String(invitation.id),
+      actorUserId: ctx.userId,
+      workspaceId: ctx.workspaceId,
+      metadata: {
+        email,
+        inviteUrl: applicationUrl(`/accept-invite?token=${encodeURIComponent(token)}`),
+      },
+    })
     revalidatePath(`/w/${slug}/settings/members`)
-    // The inviter may securely deliver the one-time link through an approved channel.
     return { ok: true as const, data: { invitation, token, email } }
   })
 }

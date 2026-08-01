@@ -5,6 +5,8 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": resolve(__dirname, "src"),
+      "@agencyos/database": resolve(__dirname, "packages/database/src/index.ts"),
+      "@agencyos/domain": resolve(__dirname, "packages/domain/src/index.ts"),
     },
   },
   test: {

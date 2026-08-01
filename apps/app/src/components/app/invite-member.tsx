@@ -60,7 +60,7 @@ export function InviteMemberDialog({
       if (data?.token) {
         setInviteResult({ email: data.email ?? "", token: data.token })
       }
-      toast.success("Invitation sent")
+      toast.success("Invitation created; delivery queued")
       router.refresh()
       ;(e.target as HTMLFormElement).reset()
     } finally {
@@ -85,7 +85,7 @@ export function InviteMemberDialog({
           <div className="space-y-3">
             <Alert>
               <AlertDescription>
-                <strong>One-time invite link:</strong> Share it securely with{" "}
+                <strong>Delivery fallback link:</strong> Share it securely with{" "}
                 <code className="rounded bg-muted px-1 py-0.5 text-xs">{inviteResult.email}</code>:
               </AlertDescription>
             </Alert>

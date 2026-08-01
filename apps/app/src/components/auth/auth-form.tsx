@@ -61,11 +61,13 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
   const search = useSearchParams()
   const next = safeRedirectPath(search.get("next"), "/app")
   const [error, setError] = React.useState<string | null>(null)
+  const [message, setMessage] = React.useState<string | null>(null)
   const [pending, setPending] = React.useState(false)
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setError(null)
+    setMessage(null)
     setPending(true)
     try {
       const formData = new FormData(e.currentTarget)
@@ -76,6 +78,7 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
       } else {
         const res = await signUpAction(formData)
         if (res?.error) setError(res.error)
+        else if (res?.needsEmailConfirmation) setMessage("Check your email to confirm your account before signing in.")
       }
     } catch (e: any) {
       // Next redirect throws — swallow
@@ -107,6 +110,8 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
+      {message && <Alert><AlertDescription>{message}</AlertDescription></Alert>}
+      {mode === "sign-in" && <p className="text-right text-xs"><Link href="/forgot-password" className="underline underline-offset-4">Forgot password?</Link></p>}
       <Button type="submit" className="w-full" disabled={pending}>
         {pending ? "Please wait…" : mode === "sign-in" ? "Sign in" : "Create account"}
       </Button>

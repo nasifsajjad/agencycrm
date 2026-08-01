@@ -7,13 +7,19 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "next dev -p 3000 2>&1 | tee dev.log",
+    "dev": "pnpm dev:web",
     "dev:web": "pnpm --filter @agencyos/web dev",
     "dev:app": "pnpm --filter @agencyos/app dev",
-    "build": "next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/",
+    "build": "pnpm build:web && pnpm build:app",
     "build:web": "pnpm --filter @agencyos/web build",
     "build:app": "pnpm --filter @agencyos/app build",
-    "start": "NODE_ENV=production bun .next/standalone/server.js 2>&1 | tee server.log",
+    "start": "pnpm start:web",
+    "start:web": "pnpm --filter @agencyos/web start",
+    "start:app": "pnpm --filter @agencyos/app start",
+    "lint:web": "pnpm --filter @agencyos/web lint",
+    "lint:app": "pnpm --filter @agencyos/app lint",
+    "typecheck:web": "pnpm --filter @agencyos/web typecheck",
+    "typecheck:app": "pnpm --filter @agencyos/app typecheck",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc --noEmit",
@@ -30,13 +36,13 @@
     "db:generate": "supabase gen types typescript --local > packages/database/src/database.types.ts",
     "db:migrate": "supabase migration new agencyos-change",
     "db:reset": "supabase db reset",
-    "seed:demo": "bun run scripts/seed-demo-user.ts",
+    "seed:demo": "node scripts/seed-demo-user.ts",
     "supabase:start": "supabase start",
     "supabase:stop": "supabase stop",
     "supabase:migrate": "supabase db push",
     "supabase:seed": "supabase db seed",
     "supabase:test": "supabase test db",
-    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm test:integration && pnpm test:security && pnpm test:e2e && pnpm build"
+    "verify": "pnpm format:check && pnpm lint && pnpm lint:web && pnpm lint:app && pnpm typecheck && pnpm typecheck:web && pnpm typecheck:app && pnpm test && pnpm test:integration && pnpm test:security && pnpm test:e2e && pnpm build"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

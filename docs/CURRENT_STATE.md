@@ -1,7 +1,7 @@
 # AgencyOS — Current State
 
-Updated 2026-08-01 after split-deployment contract verification. This document
-records observed results; it is not a release approval.
+Updated 2026-08-01 after adapter, portal, and conversion verification. This
+document records observed results; it is not a release approval.
 
 ## Verdict: NOT READY
 
@@ -65,13 +65,32 @@ critical behaviours it claims to cover.
   Bun (which is not installed in this environment), not the two deployable
   apps.
 - The database adapter deliberately emulates an ORM but lacks real
-  transactional semantics and ignores several relation predicates. This can
-  make feature queries incorrect even when RLS prevents cross-tenant exposure.
+  transactional semantics for generic callbacks; production multi-write paths
+  must use narrow PostgreSQL RPCs. The adapter now rejects unsupported `every`
+  relation predicates, handles `none`/`isNot`, validates projections through
+  PostgREST, returns empty `findMany` results correctly, and preflights single
+  row writes to prevent partial multi-row mutation.
 - Email and webhook automation actions intentionally throw because delivery
   adapters are not implemented/configured. Condition trees are not evaluated.
 - Legacy Prisma/SQLite/custom-JWT artifacts remain in the repository and
   historical documentation. They are not on the `apps/app` request path, but
   their presence makes the root application and test suite misleading.
+
+## Additional observed repairs in this verification pass
+
+- `packages/database/src/adapter.ts` is the shared adapter used by both
+  deployable apps; Vitest now resolves the workspace package directly.
+- Unit adapter coverage is 5 files and 34 tests; the integration CSV suite is
+  1 file and 4 tests; security coverage is 3 files and 7 tests.
+- Migrations 0017–0019 were applied successfully to the local
+  `supabase_db_agencyos-local` Postgres container. `supabase/tests/release_behavior.sql`
+  passed with transaction rollback, atomic deal conversion, retry idempotency,
+  and suspended-owner rejection.
+- Client portal approval decisions now use a portal-scoped action and an RPC;
+  deliverable visibility is checked against the explicit client, not workspace
+  membership. Portal requests use the scoped RPC and emit an audit event.
+- Won-deal conversion is exposed in the CRM board and uses an atomic RPC that
+  creates/reuses the client and creates the onboarding project/task.
 
 ## Required before re-verification
 

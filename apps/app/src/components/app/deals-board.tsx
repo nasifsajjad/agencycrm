@@ -4,7 +4,7 @@ import * as React from "react"
 import { useRouter } from "next/navigation"
 import { DndContext, useDraggable, useDroppable, type DragEndEvent } from "@dnd-kit/core"
 import { CSS } from "@dnd-kit/utilities"
-import { moveDealAction } from "@/lib/crm-actions"
+import { convertDealToClientAction, moveDealAction } from "@/lib/crm-actions"
 import { formatMoney, initials } from "@/lib/format"
 import { toast } from "sonner"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -21,6 +21,8 @@ interface Deal {
   stageName: string
   stageColor: string | null
   isClosed: boolean
+  isWon: boolean
+  converted: boolean
 }
 
 export function DealsBoard({
@@ -62,6 +64,20 @@ export function DealsBoard({
     }
   }
 
+  async function convert(dealId: string) {
+    setPendingId(dealId)
+    try {
+      const res = await convertDealToClientAction(workspaceSlug, dealId)
+      if (res?.error) toast.error(res.error)
+      else {
+        toast.success("Deal converted to client")
+        router.refresh()
+      }
+    } finally {
+      setPendingId(null)
+    }
+  }
+
   return (
     <DndContext onDragEnd={onDragEnd}>
       <div className="flex gap-3 overflow-x-auto pb-4">
@@ -94,6 +110,7 @@ export function DealsBoard({
                       deal={d}
                       pending={pendingId === d.id}
                       disabled={!canEdit || d.isClosed}
+                      onConvert={() => convert(d.id)}
                     />
                   ))}
                   {stageDeals.length === 0 && (
@@ -124,10 +141,12 @@ function DraggableDealCard({
   deal,
   pending,
   disabled,
+  onConvert,
 }: {
   deal: Deal
   pending: boolean
   disabled: boolean
+  onConvert: () => void
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: deal.id,
@@ -165,6 +184,15 @@ function DraggableDealCard({
             <AvatarFallback className="text-[9px]">{initials(deal.ownerName)}</AvatarFallback>
           </Avatar>
         </div>
+      )}
+      {deal.isWon && !deal.converted && (
+        <button
+          type="button"
+          onClick={(event) => { event.stopPropagation(); onConvert() }}
+          className="mt-2 w-full rounded border border-emerald-300 px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50"
+        >
+          Convert to client
+        </button>
       )}
     </div>
   )

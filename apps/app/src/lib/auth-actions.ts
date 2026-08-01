@@ -62,6 +62,16 @@ export async function forgotPasswordAction(formData: FormData) {
   return { ok: true }
 }
 
+export async function resetPasswordAction(formData: FormData) {
+  const password = String(formData.get("password") ?? "")
+  if (password.length < 8) return { error: "Password must be at least 8 characters." }
+  const supabase = await createServerClient()
+  if (!supabase) return { error: "Supabase is not configured." }
+  const { error } = await supabase.auth.updateUser({ password })
+  if (error) return { error: "Unable to reset password. Request a new link and try again." }
+  redirect("/app")
+}
+
 async function uniqueSlug(name: string) {
   const base = name.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "workspace"
   const supabase = await createServerClient()

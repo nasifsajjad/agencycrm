@@ -90,6 +90,8 @@ export default async function DealsPage({
             amountMinor: d.amountMinor.toString(),
             currency: d.currency,
             probability: d.probability,
+            isWon: d.stage?.isWon ?? false,
+            converted: Boolean(d.convertedClientId),
             company: d.company?.name ?? null,
             ownerName: d.owner?.displayName ?? null,
             stageId: d.stageId ?? "",
