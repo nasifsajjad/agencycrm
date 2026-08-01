@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Calendar, Clock, Users, CheckCircle2 } from "lucide-react"
 import { MarketingBadge } from "@/components/marketing/shell"
 import { BookDemoForm } from "@/components/marketing/book-demo-form"
+import { appHref } from "@/lib/app-links"
 
 export const metadata = { title: "Book a demo" }
 
@@ -63,7 +64,7 @@ export default function BookDemoPage() {
             <BookDemoForm />
             <p className="mt-4 text-center text-xs text-muted-foreground">
               Or explore on your own —{" "}
-              <Link href="/sign-up" className="underline hover:text-foreground">
+              <Link href={appHref("/sign-up")} className="underline hover:text-foreground">
                 start free
               </Link>{" "}
               and load demo data.

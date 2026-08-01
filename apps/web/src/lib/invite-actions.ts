@@ -1,6 +1,7 @@
 "use server"
 
 import { redirect } from "next/navigation"
+import { appHref } from "@/lib/app-links"
 import { createServerClient } from "@/lib/supabase/server"
 
 export async function acceptInviteAction(input: {
@@ -34,5 +35,5 @@ export async function acceptInviteAction(input: {
   if (error || !workspaceId) return { error: error?.message ?? "Invitation is no longer valid." }
   const { data: workspace } = await supabase.from("workspaces").select("slug").eq("id", workspaceId).single()
   if (!workspace || workspace.slug !== input.workspaceSlug) return { error: "Invalid invitation workspace." }
-  redirect(`/w/${workspace.slug}`)
+  redirect(appHref(`/w/${workspace.slug}`))
 }

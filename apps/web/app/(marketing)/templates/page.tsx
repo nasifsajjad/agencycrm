@@ -2,6 +2,7 @@ import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { MarketingBadge } from "@/components/marketing/shell"
+import { appHref } from "@/lib/app-links"
 
 export const metadata = { title: "Templates" }
 
@@ -80,7 +81,7 @@ export default function TemplatesPage() {
       </div>
       <div className="mt-12 text-center">
         <Button asChild size="lg">
-          <Link href="/sign-up">Start free with a template</Link>
+          <Link href={appHref("/sign-up")}>Start free with a template</Link>
         </Button>
       </div>
     </div>

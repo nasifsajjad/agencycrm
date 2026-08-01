@@ -3,6 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
+import { appHref } from "@/lib/app-links"
 import {
   Sparkles,
   LayoutDashboard,
@@ -222,7 +223,7 @@ export function AppShell({ ctx, user, workspaces, notifications, children }: App
           collapsed={collapsed}
           isActive={isActive}
           onCollapse={() => setCollapsed((v) => !v)}
-          onSwitchWorkspace={(slug) => router.push(`/w/${slug}`)}
+          onSwitchWorkspace={(slug) => router.push(appHref(`/w/${slug}`))}
         />
       </aside>
 
@@ -238,7 +239,7 @@ export function AppShell({ ctx, user, workspaces, notifications, children }: App
             isActive={isActive}
             onCollapse={() => setMobileOpen(false)}
             onSwitchWorkspace={(slug) => {
-              router.push(`/w/${slug}`)
+              router.push(appHref(`/w/${slug}`))
               setMobileOpen(false)
             }}
           />
@@ -314,7 +315,7 @@ export function AppShell({ ctx, user, workspaces, notifications, children }: App
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/app">
+                  <Link href={appHref("/app")}>
                     <UserIcon className="mr-2 h-4 w-4" /> Switch workspace
                   </Link>
                 </DropdownMenuItem>
@@ -418,7 +419,7 @@ function SidebarContent({
             ))}
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
-              <Link href="/onboarding">
+              <Link href={appHref("/onboarding")}>
                 <Plus className="mr-2 h-3.5 w-3.5" /> Create workspace
               </Link>
             </DropdownMenuItem>

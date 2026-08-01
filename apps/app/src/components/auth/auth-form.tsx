@@ -4,6 +4,7 @@ import * as React from "react"
 import Link from "next/link"
 import { Sparkles } from "lucide-react"
 import { useSearchParams } from "next/navigation"
+import { safeRedirectPath } from "@agencyos/config"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -58,7 +59,7 @@ export function AuthCard({
 
 export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
   const search = useSearchParams()
-  const next = search.get("next") || "/app"
+  const next = safeRedirectPath(search.get("next"), "/app")
   const [error, setError] = React.useState<string | null>(null)
   const [pending, setPending] = React.useState(false)
 

@@ -1,7 +1,7 @@
 # AgencyOS — Current State
 
-Updated 2026-08-01 by an independent production-readiness verification. This
-document records observed results; it is not a release approval.
+Updated 2026-08-01 after split-deployment contract verification. This document
+records observed results; it is not a release approval.
 
 ## Verdict: NOT READY
 
@@ -12,6 +12,30 @@ critical behaviours it claims to cover.
 
 ## Verified locally
 
+- Split-deployment contract repaired: `apps/web` now sends sign-in, sign-up,
+  onboarding, demo-to-app, and authenticated-app links to the validated
+  `NEXT_PUBLIC_APP_URL` origin. When unset, local development safely defaults to
+  `http://localhost:3001`. `apps/app` owns the authentication and onboarding
+  routes.
+- Authentication redirect targets are accepted only as app-local paths.
+  `javascript:`, `data:`, protocol-relative, malformed, backslash-based, and
+  untrusted external targets fall back to `/` (or `/app` in the client form).
+- Exact verification commands and outcomes:
+  - `pnpm exec vitest run tests/unit --reporter=default` — PASS, 4 files and 29
+    tests.
+  - `pnpm lint` — PASS.
+  - `pnpm --dir apps/web lint` — PASS.
+  - `pnpm --dir apps/app lint` — PASS.
+  - `pnpm --dir apps/web typecheck` — PASS.
+  - `pnpm --dir apps/app typecheck` — PASS.
+  - `pnpm --dir apps/web build` — PASS, 18 marketing routes generated.
+  - `pnpm --dir apps/app build` — PASS, 22 authenticated/app/portal routes
+    generated.
+  - `git diff --check` — PASS.
+- Cross-application link audit command:
+  `rg -n --glob '!**/.next/**' --glob '!**/node_modules/**' 'href=["\`](/(sign-in|sign-up|onboarding|app)|/w/)|redirect\(["\`](/(sign-in|sign-up|onboarding|app)|/w/)' apps/web`
+  — no matches. App-owned local routes remain intentionally relative inside
+  `apps/app`.
 - The request-path code in `apps/app` uses `@supabase/ssr`, PostgREST, and
   Supabase Storage; it does not import Prisma, SQLite, bcrypt, or a custom JWT
   implementation.
@@ -20,7 +44,8 @@ critical behaviours it claims to cover.
   `request.jwt.claim.sub` claims. The behavioral SQL test passed for workspace
   read/insert isolation, client-portal isolation, Storage object isolation,
   anonymous inquiry privacy, and the intentional service-role bypass.
-- Root and `apps/app` TypeScript checks and repository ESLint pass under Node 24. The web app produced a standalone Next production artifact.
+- Root and both deployable apps' TypeScript checks, ESLint, focused unit tests,
+  and separate Next production builds pass under Node 24.
 - Verification repairs added in this pass: immutable workspace owner/ID are
   enforced by a Postgres trigger; user mutations can enqueue RLS-scoped outbox
   events; the worker uses a service-role client and fails closed when it is not
@@ -33,9 +58,6 @@ critical behaviours it claims to cover.
   Supabase URL, publishable key, service-role key, CRON secret, email provider,
   webhook secret, or production project to verify. No remote environment was
   contacted or deployed.
-- `apps/web` links to `/sign-in` and `/sign-up`, but it does not own those
-  routes; it has no configured application origin/rewrite to `apps/app`.
-  Independently deployed marketing calls-to-action therefore 404.
 - The automated tests do not execute authentication, invitation acceptance,
   portal authorization as a real client identity, exports, reports, custom
   fields, notifications, automation execution, or complete critical user
@@ -53,9 +75,9 @@ critical behaviours it claims to cover.
 
 ## Required before re-verification
 
-1. Complete the split deployment contract: configure a required app origin for
-   `apps/web`, and run separate production builds and smoke tests for both
-   apps.
+1. Set `NEXT_PUBLIC_APP_URL` to the deployed authenticated-app origin in the
+   `apps/web` production environment. The code default is intentionally only
+   for local development; no deployment was performed in this pass.
 2. Provision a non-production Supabase project with Auth, Postgres migrations,
    Storage buckets/policies, service role, cron secret, and delivery adapters.
 3. Replace the root-app Playwright smoke tests with authenticated E2E coverage

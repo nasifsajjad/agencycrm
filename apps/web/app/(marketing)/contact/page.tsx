@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Mail, MessageSquare, Calendar, Building2 } from "lucide-react"
 import { MarketingBadge } from "@/components/marketing/shell"
+import { appHref } from "@/lib/app-links"
 import { ContactForm } from "@/components/marketing/contact-form"
 
 export const metadata = { title: "Contact" }
@@ -43,7 +44,7 @@ export default function ContactPage() {
               Existing customer? Sign in and use the in-app help widget for fastest response.
             </p>
             <Button asChild variant="outline" size="sm" className="mt-3">
-              <Link href="/sign-in">Sign in</Link>
+              <Link href={appHref("/sign-in")}>Sign in</Link>
             </Button>
           </CardContent>
         </Card>

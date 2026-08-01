@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Book, Shield, Rocket, Code, Settings, Database } from "lucide-react"
 import { MarketingBadge } from "@/components/marketing/shell"
+import { appHref } from "@/lib/app-links"
 
 export const metadata = { title: "Docs" }
 
@@ -84,7 +85,7 @@ export default function DocsPage() {
       <div className="mt-12 text-center">
         <p className="text-sm text-muted-foreground">Want to dive in?</p>
         <Button asChild className="mt-3">
-          <Link href="/sign-up">Start free</Link>
+          <Link href={appHref("/sign-up")}>Start free</Link>
         </Button>
       </div>
     </div>

@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
+import { appHref } from "@/lib/app-links"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -49,7 +50,7 @@ export function OnboardingForm({
         setError(res.error)
         return
       }
-      if (res?.slug) router.push(`/w/${res.slug}`)
+      if (res?.slug) router.push(appHref(`/w/${res.slug}`))
     } catch (e: any) {
       if (e?.digest?.startsWith("NEXT_REDIRECT")) return
       setError(e?.message ?? "Something went wrong.")
@@ -72,7 +73,7 @@ export function OnboardingForm({
         setError(res.error)
         return
       }
-      if (res?.slug) router.push(`/w/${res.slug}`)
+      if (res?.slug) router.push(appHref(`/w/${res.slug}`))
     } catch (e: any) {
       if (e?.digest?.startsWith("NEXT_REDIRECT")) return
       setError(e?.message ?? "Something went wrong.")

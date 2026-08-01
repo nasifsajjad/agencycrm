@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { MarketingBadge } from "@/components/marketing/shell"
+import { appHref } from "@/lib/app-links"
 
 export default function HomePage() {
   return (
@@ -60,7 +61,7 @@ function Hero() {
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Button size="lg" asChild>
-              <Link href="/sign-up">
+              <Link href={appHref("/sign-up")}>
                 Start free
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
@@ -651,7 +652,7 @@ function PricingCTA() {
                   variant={p.highlight ? "default" : "outline"}
                   asChild
                 >
-                  <Link href={p.name === "Scale" ? "/contact" : "/sign-up"}>{p.cta}</Link>
+                  <Link href={p.name === "Scale" ? "/contact" : appHref("/sign-up")}>{p.cta}</Link>
                 </Button>
               </CardContent>
             </Card>

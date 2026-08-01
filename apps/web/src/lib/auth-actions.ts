@@ -1,6 +1,7 @@
 "use server"
 
 import { redirect } from "next/navigation"
+import { appHref } from "@/lib/app-links"
 import { createServerClient } from "@/lib/supabase/server"
 import { normalizeEmail, isSafeRedirect } from "@/lib/auth"
 
@@ -13,7 +14,7 @@ export async function signInAction(formData: FormData) {
   if (!supabase) return { error: "Supabase is not configured." }
   const { error } = await supabase.auth.signInWithPassword({ email, password })
   if (error) return { error: error.message }
-  redirect(next === "/" ? "/app" : next)
+  redirect(appHref(next === "/" ? "/app" : next))
 }
 
 export async function signUpAction(formData: FormData) {
@@ -43,15 +44,15 @@ export async function signUpAction(formData: FormData) {
       p_timezone: "UTC",
     })
     if (workspaceError) return { error: workspaceError.message }
-    redirect(`/w/${slug}`)
+    redirect(appHref(`/w/${slug}`))
   }
-  redirect("/onboarding")
+  redirect(appHref("/onboarding"))
 }
 
 export async function signOutAction() {
   const supabase = await createServerClient()
   await supabase?.auth.signOut()
-  redirect("/sign-in")
+  redirect(appHref("/sign-in"))
 }
 
 export async function forgotPasswordAction(formData: FormData) {

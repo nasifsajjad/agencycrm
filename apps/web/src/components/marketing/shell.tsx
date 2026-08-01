@@ -2,6 +2,7 @@ import Link from "next/link"
 import { ArrowRight, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { appHref } from "@/lib/app-links"
 
 export function MarketingHeader() {
   return (
@@ -35,10 +36,10 @@ export function MarketingHeader() {
         </nav>
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" asChild className="hidden sm:inline-flex">
-            <Link href="/sign-in">Sign in</Link>
+            <Link href={appHref("/sign-in")}>Sign in</Link>
           </Button>
           <Button size="sm" asChild>
-            <Link href="/sign-up">
+            <Link href={appHref("/sign-up")}>
               Start free
               <ArrowRight className="ml-1 h-3.5 w-3.5" />
             </Link>

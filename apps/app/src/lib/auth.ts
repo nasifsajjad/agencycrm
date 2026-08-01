@@ -1,12 +1,10 @@
 import { redirect } from "next/navigation"
+import { safeRedirectPath } from "@agencyos/config"
 import { createServerClient } from "@/lib/supabase/server"
 import { PERMISSIONS, ROLE_PERMISSIONS, type Permission } from "@/lib/permissions"
 
 export const normalizeEmail = (email: string) => email.trim().toLowerCase()
-export function isSafeRedirect(target: string | undefined | null) {
-  if (!target || typeof target !== "string" || !target.startsWith("/") || target.startsWith("//") || target.includes(":")) return "/"
-  return target
-}
+export const isSafeRedirect = safeRedirectPath
 export const hashPassword = async (_password: string) => { throw new Error("Use Supabase Admin Auth for seeded users") }
 export const verifyPassword = async () => false
 

@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { appHref } from "@/lib/app-links"
 import { db } from "@/lib/db"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -122,7 +123,7 @@ async function ActiveClientsWidget({ ctx }: { ctx: WorkspaceContext }) {
           clients.map((c) => (
             <Link
               key={c.id}
-              href={`/w/${ctx.workspaceSlug}/clients/${c.id}`}
+              href={appHref(`/w/${ctx.workspaceSlug}/clients/${c.id}`)}
               className="block rounded-md border border-border/40 px-2 py-1.5 hover:bg-muted/40"
             >
               <div className="flex items-center justify-between">
@@ -159,7 +160,7 @@ async function PendingApprovalsWidget({ ctx }: { ctx: WorkspaceContext }) {
           approvals.map((a) => (
             <Link
               key={a.id}
-              href={`/w/${ctx.workspaceSlug}/approvals/${a.id}`}
+              href={appHref(`/w/${ctx.workspaceSlug}/approvals/${a.id}`)}
               className="block rounded-md border border-border/40 px-2 py-1.5 hover:bg-muted/40"
             >
               <div className="truncate text-sm font-medium">{a.title}</div>
@@ -221,7 +222,7 @@ async function AtRiskClientsWidget({ ctx }: { ctx: WorkspaceContext }) {
           clients.map((c) => (
             <Link
               key={c.id}
-              href={`/w/${ctx.workspaceSlug}/clients/${c.id}`}
+              href={appHref(`/w/${ctx.workspaceSlug}/clients/${c.id}`)}
               className="block rounded-md border border-border/40 px-2 py-1.5 hover:bg-muted/40"
             >
               <div className="flex items-center justify-between">

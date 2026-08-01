@@ -3,6 +3,7 @@ import { notFound } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { MarketingBadge } from "@/components/marketing/shell"
+import { appHref } from "@/lib/app-links"
 
 const SOLUTIONS: Record<
   string,
@@ -82,7 +83,7 @@ export default async function SolutionPage({ params }: { params: Promise<{ solut
         <p className="mt-4 text-lg text-muted-foreground">{data.subtitle}</p>
         <div className="mt-6">
           <Button asChild size="lg">
-            <Link href="/sign-up">Start free</Link>
+            <Link href={appHref("/sign-up")}>Start free</Link>
           </Button>
         </div>
       </div>

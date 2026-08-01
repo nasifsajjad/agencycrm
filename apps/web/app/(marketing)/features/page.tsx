@@ -2,6 +2,7 @@ import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { MarketingBadge } from "@/components/marketing/shell"
+import { appHref } from "@/lib/app-links"
 import { features } from "@/lib/feature-catalogue"
 
 export const metadata = { title: "Features" }
@@ -34,7 +35,7 @@ export default function FeaturesPage() {
       </div>
       <div className="mt-12 text-center">
         <Button asChild size="lg">
-          <Link href="/sign-up">Start free</Link>
+          <Link href={appHref("/sign-up")}>Start free</Link>
         </Button>
       </div>
     </div>

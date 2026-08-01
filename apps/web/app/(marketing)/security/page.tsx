@@ -12,6 +12,7 @@ import {
   ScrollText,
 } from "lucide-react"
 import { MarketingBadge } from "@/components/marketing/shell"
+import { appHref } from "@/lib/app-links"
 
 export const metadata = { title: "Security" }
 
@@ -73,7 +74,7 @@ export default function SecurityPage() {
         </p>
         <div className="mt-6 flex justify-center gap-3">
           <Button asChild size="lg">
-            <Link href="/sign-up">Start free</Link>
+            <Link href={appHref("/sign-up")}>Start free</Link>
           </Button>
           <Button asChild size="lg" variant="outline">
             <Link href="/contact">Talk to security</Link>

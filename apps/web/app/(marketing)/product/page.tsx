@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ArrowRight, CheckCircle2 } from "lucide-react"
 import { MarketingBadge } from "@/components/marketing/shell"
+import { appHref } from "@/lib/app-links"
 
 export const metadata = { title: "Product" }
 
@@ -20,7 +21,7 @@ export default function ProductPage() {
         </p>
         <div className="mt-6 flex justify-center gap-3">
           <Button asChild size="lg">
-            <Link href="/sign-up">
+            <Link href={appHref("/sign-up")}>
               Start free <ArrowRight className="ml-1 h-4 w-4" />
             </Link>
           </Button>

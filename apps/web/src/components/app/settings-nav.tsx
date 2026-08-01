@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { appHref } from "@/lib/app-links"
 import { db } from "@/lib/db"
 import { resolveWorkspace } from "@/lib/server"
 import { can } from "@/lib/auth"
@@ -60,7 +61,7 @@ export async function SettingsNav({ workspaceSlug }: { workspaceSlug: string }) 
       {items.map((item) => (
         <Link
           key={item.href}
-          href={`/w/${workspaceSlug}${item.href}`}
+          href={appHref(`/w/${workspaceSlug}${item.href}`)}
           className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
         >
           <item.icon className="h-4 w-4" /> {item.label}

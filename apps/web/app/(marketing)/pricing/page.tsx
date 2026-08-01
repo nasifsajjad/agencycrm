@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { CheckCircle2 } from "lucide-react"
 import { MarketingBadge } from "@/components/marketing/shell"
+import { appHref } from "@/lib/app-links"
 
 export const metadata = { title: "Pricing" }
 
@@ -21,7 +22,7 @@ const PLANS = [
       "Community support",
     ],
     cta: "Start free",
-    href: "/sign-up",
+    href: appHref("/sign-up"),
     highlight: false,
   },
   {
@@ -40,7 +41,7 @@ const PLANS = [
       "Priority support",
     ],
     cta: "Start free",
-    href: "/sign-up",
+    href: appHref("/sign-up"),
     highlight: true,
   },
   {
