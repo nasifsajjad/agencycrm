@@ -1,101 +1,39 @@
-import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import * as bcrypt from "bcryptjs"
-import { SignJWT, jwtVerify } from "jose"
-import { db } from "@/lib/db"
+import { createServerClient } from "@/lib/supabase/server"
 import { PERMISSIONS, ROLE_PERMISSIONS, type Permission } from "@/lib/permissions"
 
-const SESSION_COOKIE = "aos_session"
-const SESSION_SECRET = process.env.SESSION_SECRET || "agencyos-local-dev-secret-change-me"
-const SESSION_TTL_DAYS = 14
+export const normalizeEmail = (email: string) => email.trim().toLowerCase()
+export const hashPassword = (password: string) => bcrypt.hash(password, 10)
+export const verifyPassword = (password: string, hash: string) => bcrypt.compare(password, hash)
 
-const encoder = new TextEncoder()
-
-function secretKey() {
-  return encoder.encode(SESSION_SECRET)
+export interface AuthUser {
+  id: string
+  email: string
+  emailNormalized: string
+  displayName: string
+  avatarPath?: string | null
+  locale?: string
+  timezone?: string
 }
 
-export async function hashPassword(password: string): Promise<string> {
-  return bcrypt.hash(password, 10)
-}
+export async function getCurrentUser(): Promise<AuthUser | null> {
+  const supabase = await createServerClient()
+  if (!supabase) return null
+  const { data: authData, error: authError } = await supabase.auth.getUser()
+  if (authError || !authData.user) return null
 
-export async function verifyPassword(password: string, hash: string): Promise<boolean> {
-  return bcrypt.compare(password, hash)
-}
-
-export function normalizeEmail(email: string): string {
-  return email.trim().toLowerCase()
-}
-
-export async function createSession(
-  userId: string,
-  meta?: { ipHash?: string; userAgentSummary?: string }
-) {
-  const token = crypto.randomUUID()
-  const expiresAt = new Date(Date.now() + SESSION_TTL_DAYS * 24 * 60 * 60 * 1000)
-  await db.session.create({
-    data: {
-      userId,
-      token,
-      expiresAt,
-      ipHash: meta?.ipHash ?? null,
-      userAgentSummary: meta?.userAgentSummary ?? null,
-    },
-  })
-  await db.user.update({ where: { id: userId }, data: { lastSignInAt: new Date() } })
-  return { token, expiresAt }
-}
-
-export async function destroySession(token: string): Promise<void> {
-  await db.session.deleteMany({ where: { token } })
-}
-
-interface SessionPayload {
-  sub: string
-  t: string // session token
-  [key: string]: unknown
-}
-
-export async function setSessionCookie(token: string, expiresAt: Date) {
-  const cookieStore = await cookies()
-  const payload: SessionPayload = { sub: token, t: token }
-  const jwt = await new SignJWT(payload as any)
-    .setProtectedHeader({ alg: "HS256" })
-    .setExpirationTime(Math.floor(expiresAt.getTime() / 1000))
-    .sign(secretKey())
-  cookieStore.set(SESSION_COOKIE, jwt, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    expires: expiresAt,
-    path: "/",
-  })
-}
-
-export async function clearSessionCookie() {
-  const cookieStore = await cookies()
-  cookieStore.delete(SESSION_COOKIE)
-}
-
-export async function getCurrentUser() {
-  const cookieStore = await cookies()
-  const jwt = cookieStore.get(SESSION_COOKIE)?.value
-  if (!jwt) return null
-  try {
-    const { payload } = await jwtVerify(jwt, secretKey())
-    const token = (payload as unknown as SessionPayload).t
-    if (!token) return null
-    const session = await db.session.findUnique({
-      where: { token },
-      include: { user: true },
-    })
-    if (!session || session.expiresAt < new Date()) {
-      if (session) await db.session.delete({ where: { id: session.id } })
-      return null
-    }
-    return session.user
-  } catch {
-    return null
+  const { data: profile } = await supabase.from("profiles").select("*").eq("user_id", authData.user.id).maybeSingle()
+  const metadata = authData.user.user_metadata as Record<string, unknown> | undefined
+  const email = authData.user.email ?? String(profile?.email ?? "")
+  return {
+    id: authData.user.id,
+    email,
+    emailNormalized: normalizeEmail(email),
+    displayName: String(profile?.display_name ?? metadata?.display_name ?? email.split("@")[0] ?? "User"),
+    avatarPath: profile?.avatar_path ?? null,
+    locale: profile?.locale ?? "en",
+    timezone: profile?.timezone ?? "UTC",
   }
 }
 
@@ -103,16 +41,6 @@ export async function requireUser() {
   const user = await getCurrentUser()
   if (!user) redirect("/sign-in")
   return user
-}
-
-export async function getUserMemberships(userId: string) {
-  return db.workspaceMembership.findMany({
-    where: { userId, status: "active" },
-    include: {
-      workspace: true,
-      roles: { include: { role: { include: { permissions: { include: { permission: true } } } } } },
-    },
-  })
 }
 
 export interface WorkspaceContext {
@@ -126,41 +54,37 @@ export interface WorkspaceContext {
   isOwner: boolean
 }
 
-export async function getWorkspaceContext(
-  workspaceSlug: string,
-  user: { id: string }
-): Promise<WorkspaceContext | null> {
-  const workspace = await db.workspace.findUnique({ where: { slug: workspaceSlug } })
-  if (!workspace) return null
-  const membership = await db.workspaceMembership.findUnique({
-    where: { workspaceId_userId: { workspaceId: workspace.id, userId: user.id } },
-    include: {
-      roles: {
-        include: {
-          role: {
-            include: {
-              permissions: { include: { permission: true } },
-            },
-          },
-        },
-      },
-    },
-  })
-  if (!membership || membership.status !== "active") return null
+export async function getUserMemberships(userId: string) {
+  const supabase = await createServerClient()
+  if (!supabase) return []
+  const { data } = await supabase.from("workspace_memberships").select("*, workspaces(*)").eq("user_id", userId).eq("status", "active")
+  return data ?? []
+}
 
-  const roles = membership.roles.map((mr) => mr.role.name)
+export async function getWorkspaceContext(workspaceSlug: string, user: { id: string }): Promise<WorkspaceContext | null> {
+  const supabase = await createServerClient()
+  if (!supabase) return null
+  const { data: workspace, error: workspaceError } = await supabase.from("workspaces").select("*").eq("slug", workspaceSlug).maybeSingle()
+  if (workspaceError || !workspace) return null
+  const { data: membership, error: membershipError } = await supabase.from("workspace_memberships").select("*").eq("workspace_id", workspace.id).eq("user_id", user.id).eq("status", "active").maybeSingle()
+  if (membershipError || !membership) return null
+
+  const { data: membershipRoles } = await supabase.from("membership_roles").select("role_id").eq("membership_id", membership.id)
+  const roleIds = (membershipRoles ?? []).map((item) => item.role_id)
+  const { data: roles } = roleIds.length ? await supabase.from("roles").select("*").in("id", roleIds) : { data: [] }
+  const roleNames = (roles ?? []).map((role) => role.name as string)
   const permissionSet = new Set<Permission>()
-  for (const mr of membership.roles) {
-    const roleName = mr.role.name
-    if (roleName === "Owner") {
-      PERMISSIONS.forEach((p) => permissionSet.add(p))
-    } else {
-      const rolePerms = ROLE_PERMISSIONS[roleName] ?? []
-      rolePerms.forEach((p) => permissionSet.add(p))
-      mr.role.permissions.forEach((rp) => permissionSet.add(rp.permission.key as Permission))
+  for (const role of roles ?? []) {
+    const roleName = String(role.name)
+    if (roleName === "Owner") PERMISSIONS.forEach((permission) => permissionSet.add(permission))
+    for (const permission of ROLE_PERMISSIONS[roleName] ?? []) permissionSet.add(permission)
+    const { data: links } = await supabase.from("role_permissions").select("permission_id").eq("role_id", role.id)
+    const permissionIds = (links ?? []).map((link) => link.permission_id)
+    if (permissionIds.length) {
+      const { data: permissionRows } = await supabase.from("permissions").select("key").in("id", permissionIds)
+      for (const permission of permissionRows ?? []) permissionSet.add(permission.key as Permission)
     }
   }
-  const isOwner = roles.includes("Owner") || workspace.ownerId === user.id
 
   return {
     workspaceId: workspace.id,
@@ -168,21 +92,18 @@ export async function getWorkspaceContext(
     workspaceName: workspace.name,
     userId: user.id,
     membershipId: membership.id,
-    roles,
+    roles: roleNames,
     permissions: permissionSet,
-    isOwner,
+    isOwner: workspace.owner_id === user.id || roleNames.includes("Owner"),
   }
 }
 
-export function can(ctx: WorkspaceContext, permission: Permission): boolean {
-  if (ctx.isOwner) return true
-  return ctx.permissions.has(permission)
+export function can(ctx: WorkspaceContext, permission: Permission) {
+  return ctx.isOwner || ctx.permissions.has(permission)
 }
 
 export function requirePermission(ctx: WorkspaceContext, permission: Permission) {
-  if (!can(ctx, permission)) {
-    throw new AuthorizationError(`Missing permission: ${permission}`)
-  }
+  if (!can(ctx, permission)) throw new AuthorizationError(`Missing permission: ${permission}`)
 }
 
 export class AuthorizationError extends Error {
@@ -192,3 +113,10 @@ export class AuthorizationError extends Error {
     this.name = "AuthorizationError"
   }
 }
+
+// Compatibility exports are intentionally no-ops for code paths that are
+// being removed. Supabase Auth owns the session cookie and refresh lifecycle.
+export async function createSession() { throw new Error("Supabase Auth owns sessions") }
+export async function setSessionCookie() { throw new Error("Supabase Auth owns session cookies") }
+export async function destroySession() { const client = await createServerClient(); await client?.auth.signOut() }
+export async function clearSessionCookie() { const client = await createServerClient(); await client?.auth.signOut() }

@@ -1,4 +1,5 @@
 import { db } from "@/lib/db"
+import { createServerClient } from "@/lib/supabase/server"
 import type { WorkspaceContext } from "@/lib/auth"
 
 export interface AuditInput {
@@ -13,19 +14,19 @@ export interface AuditInput {
 }
 
 export async function audit(input: AuditInput) {
-  await db.auditEvent.create({
-    data: {
-      workspaceId: input.ctx.workspaceId,
-      actorUserId: input.ctx.userId,
-      action: input.action,
-      entityType: input.entityType,
-      entityId: input.entityId ?? null,
-      beforeJson: (input.before as any) ?? null,
-      afterJson: (input.after as any) ?? null,
-      ipHash: input.ipHash ?? null,
-      userAgentSummary: input.userAgentSummary ?? null,
-    },
+  const supabase = await createServerClient()
+  if (!supabase) throw new Error("Supabase is not configured")
+  const { error } = await supabase.rpc("record_audit", {
+    p_workspace_id: input.ctx.workspaceId,
+    p_action: input.action,
+    p_entity_type: input.entityType,
+    p_entity_id: input.entityId ?? null,
+    p_before: input.before ?? null,
+    p_after: input.after ?? null,
+    p_ip_hash: input.ipHash ?? null,
+    p_user_agent_summary: input.userAgentSummary ?? null,
   })
+  if (error) throw error
 }
 
 export async function listAuditEvents(
