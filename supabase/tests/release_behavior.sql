@@ -39,6 +39,73 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------------
+-- Migration 0024: replay must return the records this conversion created.
+--
+-- The checks above pass under the old heuristic too, because the fixture has
+-- exactly one company, deal, client and project — so "earliest project for the
+-- client" and "the project this conversion created" coincide. This section
+-- breaks that coincidence: a SECOND won deal for the SAME company converts,
+-- reuses the existing client (0018:52 matches on company_id), and creates a
+-- second project. Replaying either deal must return its own project, not the
+-- earliest one.
+-- ---------------------------------------------------------------------------
+insert into public.deals (workspace_id, company_id, pipeline_id, stage_id, name, owner_user_id)
+values (:'workspace_id', :'company_id', :'pipeline_id', :'stage_id', 'Second won deal', '30000000-0000-4000-8000-000000000003')
+returning id as second_deal_id \gset
+select set_config('release.second_deal_id', :'second_deal_id', true);
+
+select public.convert_deal_to_client(:'workspace_id', :'second_deal_id', null, null) as second_conversion \gset
+
+do $$
+declare
+  first_replay jsonb;
+  second_replay jsonb;
+  first_project uuid;
+  second_project uuid;
+begin
+  -- The same client is reused, so there is now one client and two projects.
+  if (select count(*) from public.clients where workspace_id = current_setting('release.workspace_id')::uuid) <> 1 then
+    raise exception 'second conversion for the same company must reuse the client';
+  end if;
+  if (select count(*) from public.projects where workspace_id = current_setting('release.workspace_id')::uuid) <> 2 then
+    raise exception 'second conversion must create its own onboarding project';
+  end if;
+
+  first_replay := public.convert_deal_to_client(
+    current_setting('release.workspace_id')::uuid,
+    current_setting('release.deal_id')::uuid, null, null);
+  second_replay := public.convert_deal_to_client(
+    current_setting('release.workspace_id')::uuid,
+    current_setting('release.second_deal_id')::uuid, null, null);
+
+  if (first_replay->>'replayed')::boolean is not true then raise exception 'first deal should replay'; end if;
+  if (second_replay->>'replayed')::boolean is not true then raise exception 'second deal should replay'; end if;
+
+  first_project := (first_replay->>'projectId')::uuid;
+  second_project := (second_replay->>'projectId')::uuid;
+
+  if first_project = second_project then
+    raise exception 'both deals replayed to the same project; replay is re-deriving instead of reading the recorded id';
+  end if;
+
+  if first_project <> (select converted_project_id from public.deals where id = current_setting('release.deal_id')::uuid) then
+    raise exception 'first deal replayed a project it did not create';
+  end if;
+  if second_project <> (select converted_project_id from public.deals where id = current_setting('release.second_deal_id')::uuid) then
+    raise exception 'second deal replayed a project it did not create';
+  end if;
+
+  if (first_replay->>'taskId')::uuid = (second_replay->>'taskId')::uuid then
+    raise exception 'both deals replayed to the same task';
+  end if;
+
+  -- Still no duplicate side effects from the replays themselves.
+  if (select count(*) from public.projects where workspace_id = current_setting('release.workspace_id')::uuid) <> 2 then
+    raise exception 'replay created an extra project';
+  end if;
+end $$;
+
+-- ---------------------------------------------------------------------------
 -- Migration 0023: outbox lifecycle.
 --
 -- The behaviour that matters here is what happens when a worker disappears
