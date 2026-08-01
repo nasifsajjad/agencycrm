@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { createHash } from "node:crypto"
-import { db } from "@/lib/db"
+import { db, rpc } from "@/lib/db"
 import { can, AuthorizationError } from "@/lib/auth"
 import type { Permission } from "@/lib/permissions"
 import { resolveWorkspace } from "@/lib/server"
@@ -555,34 +555,12 @@ export async function decideApprovalAction(
     const step = approval.steps.find((s) => s.status === "pending")
     if (!step) throw new Error("No pending step found.")
 
-    await db.$transaction(async (tx) => {
-      await tx.approvalStep.update({
-        where: { id: step.id },
-        data: {
-          status: decision,
-          decidedAt: new Date(),
-          decisionNote: note || null,
-          decidedByUserId: ctx.userId,
-        },
-      })
-      await tx.approvalEvent.create({
-        data: {
-          approvalRequestId: approval.id,
-          actorUserId: ctx.userId,
-          action: decision,
-          note: note || null,
-        },
-      })
-      // If there's another pending step after this one, leave the overall status pending.
-      const remainingSteps = approval.steps.filter(
-        (s) => s.id !== step.id && s.status === "pending"
-      )
-      if (remainingSteps.length === 0) {
-        await tx.approvalRequest.update({
-          where: { id: approval.id },
-          data: { status: decision, decidedAt: new Date() },
-        })
-      }
+    await rpc("decide_approval", {
+      p_workspace_id: ctx.workspaceId,
+      p_approval_id: approval.id,
+      p_step_id: step.id,
+      p_decision: decision,
+      p_note: note || null,
     })
 
     await audit({
@@ -699,21 +677,19 @@ export async function inviteMemberAction(slug: string, formData: FormData) {
     const tokenHash = createHash("sha256").update(token).digest("hex")
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
 
-    const invitation = await db.invitation.create({
-      data: {
-        workspaceId: ctx.workspaceId,
-        emailNormalized: email,
-        tokenHash,
-        expiresAt,
-        invitedById: ctx.userId,
-      },
+    const invitation = await rpc<Record<string, unknown>>("create_invitation", {
+      p_workspace_id: ctx.workspaceId,
+      p_email_normalized: email,
+      p_token_hash: tokenHash,
+      p_expires_at: expiresAt,
+      p_role_id: role.id,
+      p_team_ids: [],
     })
-    await db.invitationRole.create({ data: { invitationId: invitation.id, roleId: role.id } })
     await audit({
       ctx,
       action: "invitation.created",
       entityType: "invitation",
-      entityId: invitation.id,
+      entityId: String(invitation.id),
       after: { email, role: roleName },
     })
     revalidatePath(`/w/${slug}/settings/members`)
