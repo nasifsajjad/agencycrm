@@ -25,41 +25,17 @@ export function createBrowserClient(): SupabaseClient | null {
 }
 
 /**
- * Password sign-in through Supabase Auth.
+ * Sign-in, sign-up, magic link, password reset and sign-out all run as server
+ * actions in `@/lib/auth-actions`, so the session cookie is written by the
+ * server and the redirect target is validated there.
+ *
+ * This module previously also exported browser-side signInWithPassword,
+ * signInWithOtp, signUpWithPassword and signOut helpers. They had no importers
+ * and derived their email redirect from `window.location.origin`, which is
+ * attacker-influencable in a way the server actions' applicationUrl() is not.
+ * They were removed rather than left as a second, weaker path to the same
+ * operations.
  */
-export async function signInWithPassword(email: string, password: string) {
-  const client = createBrowserClient()
-  if (!client) {
-    return { error: { message: "Supabase is not configured." } }
-  }
-  return client.auth.signInWithPassword({ email, password })
-}
-
-export async function signInWithOtp(email: string) {
-  const client = createBrowserClient()
-  if (!client) {
-    return { error: { message: "Supabase not configured." } }
-  }
-  return client.auth.signInWithOtp({
-    email,
-    options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
-  })
-}
-
-export async function signUpWithPassword(email: string, password: string, displayName?: string) {
-  const client = createBrowserClient()
-  if (!client) {
-    return { error: { message: "Supabase is not configured." } }
-  }
-  return client.auth.signUp({
-    email,
-    password,
-    options: {
-      data: { display_name: displayName ?? email.split("@")[0] },
-      emailRedirectTo: `${window.location.origin}/auth/callback`,
-    },
-  })
-}
 
 export async function signOut() {
   const client = createBrowserClient()

@@ -652,8 +652,22 @@ export type Delegate = {
   count(args?: QueryArgs): Promise<number>
 }
 
+/**
+ * This adapter speaks PostgREST, which has no multi-statement transaction. The
+ * type previously advertised a Prisma-shaped
+ *   `$transaction<T>(cb: (tx: Database) => Promise<T>): Promise<T>`
+ * while the implementation was an unconditional throw. Anything written against
+ * that signature would typecheck and then fail at runtime, in the exact code
+ * paths where atomicity was being relied upon.
+ *
+ * The signature now states what actually happens. Atomic multi-write work
+ * belongs in a PostgreSQL function — see convert_deal_to_client,
+ * decide_approval, accept_invitation, create_client_request — invoked through
+ * `rpc()`.
+ */
 export type Database = Record<string, Delegate> & {
-  $transaction<T>(callback: (tx: Database) => Promise<T>): Promise<T>
+  /** @deprecated Always throws. Use a PostgreSQL transaction RPC instead. */
+  $transaction: never
 }
 
 export function createDatabase(getClient: ClientFactory): Database {

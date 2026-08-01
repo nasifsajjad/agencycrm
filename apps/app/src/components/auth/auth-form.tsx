@@ -9,7 +9,12 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { signInAction, signUpAction, forgotPasswordAction } from "@/lib/auth-actions"
+import {
+  signInAction,
+  signUpAction,
+  forgotPasswordAction,
+  signInWithMagicLinkAction,
+} from "@/lib/auth-actions"
 export function AuthCard({
   title,
   subtitle,
@@ -89,6 +94,31 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
     }
   }
 
+  async function onMagicLink(e: React.MouseEvent<HTMLButtonElement>) {
+    setError(null)
+    setMessage(null)
+    const form = e.currentTarget.form
+    if (!form) return
+    const formData = new FormData(form)
+    if (!String(formData.get("email") ?? "").trim()) {
+      setError("Enter your email address first.")
+      return
+    }
+    formData.set("next", next)
+    setPending(true)
+    try {
+      const res = await signInWithMagicLinkAction(formData)
+      if (res?.error) setError(res.error)
+      // Same message whether or not the account exists, so this cannot be
+      // used to enumerate accounts.
+      else setMessage("If an account exists for that email, a sign-in link is on its way.")
+    } catch (err: any) {
+      setError(err?.message ?? "Something went wrong. Please try again.")
+    } finally {
+      setPending(false)
+    }
+  }
+
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       {mode === "sign-up" && (
@@ -115,6 +145,27 @@ export function AuthForm({ mode }: { mode: "sign-in" | "sign-up" }) {
       <Button type="submit" className="w-full" disabled={pending}>
         {pending ? "Please wait…" : mode === "sign-in" ? "Sign in" : "Create account"}
       </Button>
+      {mode === "sign-in" && (
+        <>
+          <div className="relative py-1">
+            <div className="absolute inset-0 flex items-center" aria-hidden="true">
+              <span className="w-full border-t border-border/60" />
+            </div>
+            <div className="relative flex justify-center">
+              <span className="bg-card px-2 text-xs text-muted-foreground">or</span>
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            disabled={pending}
+            onClick={onMagicLink}
+          >
+            Email me a sign-in link
+          </Button>
+        </>
+      )}
       <p className="text-center text-xs text-muted-foreground">
         By continuing, you agree to our{" "}
         <Link href="/terms" className="underline hover:text-foreground">

@@ -145,7 +145,11 @@ describe("Supabase database adapter semantics", () => {
 
   it("fails explicitly for generic transactions and invalid projections", async () => {
     const db = createDatabase(() => new FakeSupabase() as never)
-    await expect(db.$transaction(async () => true)).rejects.toThrow("transaction RPC")
+    // $transaction is typed `never` so that call sites fail to compile rather
+    // than failing at runtime; the cast here is deliberate and reproduces what
+    // a pre-existing untyped caller would have done.
+    const untyped = db as unknown as { $transaction: (cb: () => Promise<unknown>) => Promise<unknown> }
+    await expect(untyped.$transaction(async () => true)).rejects.toThrow("transaction RPC")
     await expect(db.company.findMany({ select: { madeUpField: true } })).rejects.toThrow("column does not exist")
   })
 })
