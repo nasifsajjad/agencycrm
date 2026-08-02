@@ -9,13 +9,11 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  # Builds must not reach a real project. These are structurally valid
-  # placeholders so Next can prerender; every request path fails closed
-  # without a reachable database, which is what we want in CI.
-  NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
-  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci-placeholder-publishable-key
-  NEXT_PUBLIC_APP_URL: http://localhost:3001
+# Deliberately no workflow-level env block. Placeholder Supabase credentials
+# are set only on the `build` job, which needs them to prerender. Exporting
+# them globally leaked build configuration into the unit tests and changed how
+# far the code got before failing, which is a property no test should depend
+# on.
 
 jobs:
   static:
@@ -71,11 +69,28 @@ jobs:
 
       # The whole point of this job: prove the chain applies to an empty
       # database in filename order, every time, rather than assuming it.
-      - name: Start local Supabase and apply all migrations
+      #
+      # A fresh runner has no Docker volume, so `supabase start` IS the
+      # from-empty application of every migration. A second `db reset` was
+      # redundant, and `--no-seed` is not accepted by every CLI version, so it
+      # failed the job while proving nothing the start had not already proven.
+      - name: Start local Supabase, applying every migration from empty
         run: supabase start
 
-      - name: Reset from migrations and seed
-        run: supabase db reset --no-seed
+      # Fail loudly if the chain silently stopped short.
+      - name: Confirm every migration is recorded as applied
+        run: |
+          set -euo pipefail
+          expected=$(ls supabase/migrations/*.sql | wc -l)
+          applied=$(docker exec supabase_db_agencyos-local psql -U postgres -d postgres -tAc \
+            "select count(*) from supabase_migrations.schema_migrations")
+          echo "migrations on disk: $expected, applied: $applied"
+          if [ "$expected" -ne "$applied" ]; then
+            docker exec supabase_db_agencyos-local psql -U postgres -d postgres -c \
+              "select version from supabase_migrations.schema_migrations order by version"
+            echo "::error::migration count mismatch — the chain did not fully apply"
+            exit 1
+          fi
 
       # These shell into the container and fail — never skip — if it is absent.
       - name: RLS and tenant isolation
@@ -104,6 +119,13 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build:web
       - run: pnpm build:app
+    env:
+      # Structurally valid placeholders so Next can prerender. No request path
+      # can reach a real project; everything fails closed. Scoped to this job
+      # only — see the note above `jobs:`.
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci-placeholder-publishable-key
+      NEXT_PUBLIC_APP_URL: http://localhost:3001
 
   e2e:
     name: End-to-end
@@ -134,7 +156,14 @@ jobs:
           echo "SUPABASE_SERVICE_ROLE_KEY=$(supabase status -o json | jq -r '.SERVICE_ROLE_KEY')" >> "$GITHUB_ENV"
 
       - run: pnpm test:e2e:install
-      # playwright.config.ts boots both dev servers itself.
+
+      # Built against the live local Supabase, then served with `next start`
+      # by playwright.config.ts. Building here rather than reusing the build
+      # job because the NEXT_PUBLIC_* values are baked in at build time and
+      # that job uses placeholders.
+      - run: pnpm build:web
+      - run: pnpm build:app
+
       - run: pnpm test:e2e
 
       - name: Stop Supabase

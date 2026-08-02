@@ -20,19 +20,28 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
   ],
+  // In CI the apps are built first and served with `next start`. Dev mode
+  // compiles each route on first request, so a cold run routinely exceeds the
+  // start timeout and then times out again per navigation — flake that looks
+  // like a product failure. Locally, dev stays the default so `pnpm test:e2e`
+  // needs no build step.
   webServer: [
     {
-      command: "pnpm --filter @agencyos/web dev",
+      command: process.env.CI
+        ? "pnpm --filter @agencyos/web start"
+        : "pnpm --filter @agencyos/web dev",
       url: "http://localhost:3000",
-      reuseExistingServer: true,
-      timeout: 60_000,
+      reuseExistingServer: !process.env.CI,
+      timeout: 180_000,
       env: { NEXT_PUBLIC_APP_URL: "http://localhost:3001" },
     },
     {
-      command: "pnpm --filter @agencyos/app dev",
+      command: process.env.CI
+        ? "pnpm --filter @agencyos/app start"
+        : "pnpm --filter @agencyos/app dev",
       url: "http://localhost:3001/sign-in",
-      reuseExistingServer: true,
-      timeout: 60_000,
+      reuseExistingServer: !process.env.CI,
+      timeout: 180_000,
       env: { NEXT_PUBLIC_APP_URL: "http://localhost:3001" },
     },
   ],
