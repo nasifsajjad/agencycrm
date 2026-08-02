@@ -16,7 +16,7 @@
 import { serviceDb, serviceRpc, rpc } from "@/lib/db"
 import { createServiceClient } from "@/lib/supabase/server"
 import { evaluateConditionTree } from "@agencyos/domain"
-import { sendEmail, sendWebhook } from "@/lib/delivery"
+import { sendEmail, sendInvitationEmail, sendWebhook } from "@/lib/delivery"
 
 export interface OutboxEventPayload {
   eventType: string
@@ -106,10 +106,13 @@ export async function processOutbox(batchSize = 50) {
 
       if (event.eventType === "invitation.created") {
         const invitation = record(event.payload)
-        await sendEmail({
-          to: String(invitation.email ?? ""),
-          subject: "You have been invited to AgencyOS",
-          text: `You have been invited to join a workspace. Open this link to accept: ${String(invitation.inviteUrl ?? "")}`,
+        const client = createServiceClient()
+        if (!client) throw new Error("SUPABASE_SERVICE_ROLE_KEY is not configured")
+        await sendInvitationEmail({
+          email: String(invitation.email ?? ""),
+          inviteUrl: String(invitation.inviteUrl ?? ""),
+          workspaceName: invitation.workspaceName ? String(invitation.workspaceName) : undefined,
+          admin: client.auth.admin,
         })
       }
 

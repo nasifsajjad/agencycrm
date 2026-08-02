@@ -43,6 +43,79 @@ export async function sendEmail(message: EmailMessage): Promise<{ providerMessag
   }
 }
 
+/**
+ * Sends a workspace invitation.
+ *
+ * Supabase is the default and needs no third-party provider: Auth already
+ * sends confirmation, recovery and magic-link mail, and `inviteUserByEmail`
+ * reuses that same mailer. The invite link authenticates the recipient and
+ * lands them on our own /accept-invite page, where the single-use token in the
+ * URL is exchanged by the accept_invitation RPC — so Supabase handles delivery
+ * and identity while the workspace membership decision stays ours.
+ *
+ * Set EMAIL_PROVIDER=resend to route through Resend instead.
+ *
+ * Two limits worth knowing about Supabase's built-in SMTP:
+ *   - It is rate limited to a handful of messages per hour and is documented
+ *     as development-only. For production, set Custom SMTP in the Supabase
+ *     dashboard; this code path does not change.
+ *   - inviteUserByEmail only works for addresses with no account yet. An
+ *     existing user is handled below by falling back to a magic link to the
+ *     same destination.
+ */
+export async function sendInvitationEmail(input: {
+  email: string
+  inviteUrl: string
+  workspaceName?: string
+  admin: {
+    inviteUserByEmail: (
+      email: string,
+      options?: { redirectTo?: string; data?: Record<string, unknown> }
+    ) => Promise<{ error: { message: string; status?: number } | null }>
+    generateLink: (params: {
+      type: "magiclink"
+      email: string
+      options?: { redirectTo?: string }
+    }) => Promise<{ error: { message: string } | null }>
+  }
+}): Promise<{ providerMessageId: string }> {
+  if (!validEmail(input.email)) throw new Error("Invalid email recipient")
+
+  if (process.env.EMAIL_PROVIDER === "resend") {
+    return sendEmail({
+      to: input.email,
+      subject: `You have been invited to ${input.workspaceName ?? "AgencyOS"}`,
+      text: `You have been invited to join a workspace. Open this link to accept: ${input.inviteUrl}`,
+    })
+  }
+
+  const { error } = await input.admin.inviteUserByEmail(input.email, {
+    redirectTo: input.inviteUrl,
+    data: { invited_to: input.workspaceName ?? null },
+  })
+
+  if (!error) return { providerMessageId: `supabase-invite:${input.email}` }
+
+  // Already registered: invite is not available, but a magic link reaches the
+  // same page with the same token, and they are already able to sign in.
+  const alreadyRegistered =
+    error.status === 422 || /already been registered|already exists/i.test(error.message)
+
+  if (!alreadyRegistered) {
+    throw new Error(`Supabase could not send the invitation: ${error.message}`)
+  }
+
+  const { error: linkError } = await input.admin.generateLink({
+    type: "magiclink",
+    email: input.email,
+    options: { redirectTo: input.inviteUrl },
+  })
+  if (linkError) {
+    throw new Error(`Supabase could not send the invitation: ${linkError.message}`)
+  }
+  return { providerMessageId: `supabase-magiclink:${input.email}` }
+}
+
 function privateAddress(address: string) {
   if (net.isIPv4(address)) {
     const [a, b] = address.split(".").map(Number)

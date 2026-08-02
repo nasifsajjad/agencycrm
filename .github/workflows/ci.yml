@@ -166,9 +166,23 @@ jobs:
 
       - name: Export local Supabase credentials
         run: |
-          echo "NEXT_PUBLIC_SUPABASE_URL=$(supabase status -o json | jq -r '.API_URL')" >> "$GITHUB_ENV"
-          echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$(supabase status -o json | jq -r '.ANON_KEY')" >> "$GITHUB_ENV"
-          echo "SUPABASE_SERVICE_ROLE_KEY=$(supabase status -o json | jq -r '.SERVICE_ROLE_KEY')" >> "$GITHUB_ENV"
+          set -euo pipefail
+          status=$(supabase status -o json)
+          url=$(echo "$status" | jq -r '.API_URL // empty')
+          anon=$(echo "$status" | jq -r '.ANON_KEY // empty')
+          service=$(echo "$status" | jq -r '.SERVICE_ROLE_KEY // empty')
+          # NEXT_PUBLIC_* values are baked in at build time, so an empty or
+          # "null" value here produces an app that builds fine and fails every
+          # request. Fail here instead, where the cause is obvious.
+          if [ -z "$url" ] || [ -z "$anon" ] || [ -z "$service" ]; then
+            echo "$status"
+            echo "::error::could not read API_URL/ANON_KEY/SERVICE_ROLE_KEY from supabase status"
+            exit 1
+          fi
+          echo "Supabase API at $url"
+          echo "NEXT_PUBLIC_SUPABASE_URL=$url" >> "$GITHUB_ENV"
+          echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$anon" >> "$GITHUB_ENV"
+          echo "SUPABASE_SERVICE_ROLE_KEY=$service" >> "$GITHUB_ENV"
 
       - run: pnpm test:e2e:install
 
