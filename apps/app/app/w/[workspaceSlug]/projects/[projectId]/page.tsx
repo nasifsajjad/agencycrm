@@ -9,8 +9,9 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ArrowLeft, CheckCircle2, Plus } from "lucide-react"
+import { ArrowLeft, CheckCircle2, Paperclip, Plus, Upload } from "lucide-react"
 import { ApprovalRequestDialog } from "@/components/app/approval-request-form"
+import { FileUploadDialog } from "@/components/app/file-upload"
 import {
   humanStatus,
   classForStatus,
@@ -21,6 +22,14 @@ import {
 } from "@/lib/format"
 import { TaskFormDialog } from "@/components/app/task-form"
 import { TasksBoard } from "@/components/app/tasks-board"
+
+/** Human-readable byte size for the files list. */
+function formatFileSize(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B"
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
 
 export default async function ProjectDetailPage({
   params,
@@ -64,6 +73,27 @@ export default async function ProjectDetailPage({
       take: 5,
     }),
   ])
+
+  // Files reach a project through file_links, so resolve the links first and
+  // then the file rows. RLS on both tables still applies.
+  const fileLinks = can(ctx, "files.read")
+    ? await db.fileLink.findMany({
+        where: { entityType: "project", entityId: project.id },
+        select: { fileId: true },
+        take: 100,
+      })
+    : []
+  const projectFiles = fileLinks.length
+    ? await db.fileRecord.findMany({
+        where: {
+          workspaceId: ctx.workspaceId,
+          id: { in: fileLinks.map((link) => link.fileId) },
+        },
+        include: { uploader: true },
+        orderBy: { createdAt: "desc" },
+        take: 100,
+      })
+    : []
 
   const loggedMinutes = project.timeEntries.reduce((s, t) => s + t.minutes, 0)
 
@@ -164,6 +194,7 @@ export default async function ProjectDetailPage({
           <TabsTrigger value="list">List</TabsTrigger>
           <TabsTrigger value="milestones">Milestones</TabsTrigger>
           <TabsTrigger value="time">Time</TabsTrigger>
+          <TabsTrigger value="files">Files</TabsTrigger>
           <TabsTrigger value="team">Team</TabsTrigger>
         </TabsList>
 
@@ -318,6 +349,67 @@ export default async function ProjectDetailPage({
                     </div>
                   ))}
                 </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="files" className="mt-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+              <CardTitle className="text-sm">Files</CardTitle>
+              {can(ctx, "files.upload") && (
+                <FileUploadDialog
+                  workspaceSlug={workspaceSlug}
+                  entityType="project"
+                  entityId={project.id}
+                  trigger={
+                    <Button size="sm" variant="outline">
+                      <Upload className="mr-1 h-3.5 w-3.5" /> Upload
+                    </Button>
+                  }
+                />
+              )}
+            </CardHeader>
+            <CardContent>
+              {projectFiles.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No files yet. Upload deliverables, briefs or assets here.
+                </p>
+              ) : (
+                <ul className="divide-y divide-border/60">
+                  {projectFiles.map((file) => (
+                    <li key={file.id} className="flex items-center gap-3 py-2.5">
+                      <Paperclip
+                        className="h-4 w-4 shrink-0 text-muted-foreground"
+                        aria-hidden="true"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-medium">{file.originalName}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {formatFileSize(Number(file.sizeBytes))} ·{" "}
+                          {file.uploader?.displayName ?? "Unknown"} · {relativeTime(file.createdAt)}
+                        </div>
+                      </div>
+                      {file.visibility === "client" && (
+                        <Badge variant="outline" className="text-[10px]">
+                          Client visible
+                        </Badge>
+                      )}
+                      {can(ctx, "files.read") && (
+                        <Button size="sm" variant="ghost" asChild>
+                          <a
+                            href={`/api/files/${file.id}/download?ws=${encodeURIComponent(workspaceSlug)}`}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Open
+                          </a>
+                        </Button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
               )}
             </CardContent>
           </Card>
