@@ -627,6 +627,70 @@ export async function assignTaskAction(slug: string, taskId: string, assigneeId:
 
 // ---- Approvals ----
 
+/**
+ * Creates an approval request with one pending step per approver.
+ *
+ * Until now nothing in the application could do this — the decision flow, step
+ * tracking and event log all worked, but a request could only come from the
+ * demo seeder. The write spans approval_requests, approval_steps and
+ * approval_events, so it goes through an RPC (migration 0027) rather than the
+ * adapter, which has no transaction.
+ *
+ * The RPC re-checks the permission, the caller's access to the record under
+ * review, and that every approver is an active member — none of which is
+ * trusted from here.
+ */
+export async function createApprovalRequestAction(
+  slug: string,
+  input: {
+    entityType: string
+    entityId: string
+    title: string
+    instructions?: string
+    dueAt?: string
+    approverIds: string[]
+  }
+) {
+  return withPermission(slug, "approvals.request", async () => {
+    const ctx = await resolveWorkspace(slug)
+
+    const title = input.title.trim()
+    if (!title) throw new Error("Give the approval a title.")
+
+    const approverIds = Array.from(new Set(input.approverIds.filter(Boolean)))
+    if (approverIds.length === 0) throw new Error("Choose at least one approver.")
+
+    let dueAt: string | null = null
+    if (input.dueAt) {
+      const parsed = new Date(input.dueAt)
+      if (Number.isNaN(parsed.getTime())) throw new Error("That due date is not valid.")
+      dueAt = parsed.toISOString()
+    }
+
+    const approval = await rpc<{ id: string }>("create_approval_request", {
+      p_workspace_id: ctx.workspaceId,
+      p_entity_type: input.entityType,
+      p_entity_id: input.entityId,
+      p_title: title,
+      p_instructions: input.instructions?.trim() || null,
+      p_due_at: dueAt,
+      p_approver_ids: approverIds,
+    })
+
+    await emitEvent({
+      workspaceId: ctx.workspaceId,
+      eventType: "approval.requested",
+      entityType: "approval",
+      entityId: approval.id,
+      actorUserId: ctx.userId,
+      metadata: { title, entityType: input.entityType, entityId: input.entityId },
+    })
+
+    revalidatePath(`/w/${slug}/approvals`)
+    return approval
+  })
+}
+
 export async function decideApprovalAction(
   slug: string,
   approvalId: string,

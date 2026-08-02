@@ -9,7 +9,8 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ArrowLeft, Plus } from "lucide-react"
+import { ArrowLeft, CheckCircle2, Plus } from "lucide-react"
+import { ApprovalRequestDialog } from "@/components/app/approval-request-form"
 import {
   humanStatus,
   classForStatus,
@@ -117,6 +118,26 @@ export default async function ProjectDetailPage({
               trigger={
                 <Button size="sm">
                   <Plus className="mr-1 h-3.5 w-3.5" /> New task
+                </Button>
+              }
+            />
+          )}
+          {can(ctx, "approvals.request") && (
+            <ApprovalRequestDialog
+              workspaceSlug={workspaceSlug}
+              entityType="project"
+              entityId={project.id}
+              defaultTitle={project.name}
+              approvers={members
+                .map((m) => ({
+                  id: m.user.id,
+                  name: m.user.displayName ?? m.user.email,
+                  email: m.user.email,
+                }))
+                .filter((approver) => approver.id)}
+              trigger={
+                <Button size="sm" variant="outline">
+                  <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Request approval
                 </Button>
               }
             />

@@ -8,6 +8,9 @@ import { Badge } from "@/components/ui/badge"
 import { humanStatus, classForStatus, relativeTime, formatDate } from "@/lib/format"
 import { buildPageInfo, parsePageParams } from "@agencyos/domain"
 import { Pagination } from "@/components/app/pagination"
+import { Plus } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { ApprovalRequestDialog } from "@/components/app/approval-request-form"
 
 export default async function ApprovalsPage({
   params,
@@ -23,8 +26,10 @@ export default async function ApprovalsPage({
 
   const pageParams = parsePageParams(resolvedSearchParams)
 
+  const canRequest = can(ctx, "approvals.request")
+
   const where = { workspaceId: ctx.workspaceId }
-  const [approvals, approvalCount] = await Promise.all([
+  const [approvals, approvalCount, members] = await Promise.all([
     db.approvalRequest.findMany({
       where,
       include: {
@@ -37,7 +42,21 @@ export default async function ApprovalsPage({
       take: pageParams.take,
     }),
     db.approvalRequest.count({ where }),
+    canRequest
+      ? db.workspaceMembership.findMany({
+          where: { workspaceId: ctx.workspaceId, status: "active" },
+          include: { user: { select: { id: true, displayName: true, email: true } } },
+        })
+      : Promise.resolve([]),
   ])
+
+  const approvers = members
+    .map((membership) => ({
+      id: membership.user?.id ?? "",
+      name: membership.user?.displayName ?? membership.user?.email ?? "Unknown",
+      email: membership.user?.email ?? "",
+    }))
+    .filter((approver) => approver.id)
 
   const pageInfo = buildPageInfo(pageParams, approvalCount)
 
@@ -49,11 +68,29 @@ export default async function ApprovalsPage({
       <PageHeader
         title="Approvals"
         description={`${pending.length} pending · ${decided.length} decided`}
+        action={
+          canRequest && (
+            <Button size="sm" asChild>
+              <Link href={`/w/${workspaceSlug}/projects`}>
+                <Plus className="mr-1 h-3.5 w-3.5" /> Request approval
+              </Link>
+            </Button>
+          )
+        }
       />
       {approvals.length === 0 ? (
         <EmptyState
           title="No approvals yet"
-          description="Approvals are requested from deliverable pages or directly from project work."
+          description={
+            canRequest
+              ? "An approval always belongs to a record. Open a project and use Request approval there."
+              : "Approvals raised by your team will appear here."
+          }
+          action={
+            canRequest
+              ? { label: "Browse projects", href: `/w/${workspaceSlug}/projects` }
+              : undefined
+          }
         />
       ) : (
         <div className="space-y-6">

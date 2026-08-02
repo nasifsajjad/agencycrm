@@ -39,6 +39,98 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------------
+-- Migration 0027: approval requests can be created, and a request for changes
+-- cannot be overwritten by a later approval.
+--
+-- Before 0027 nothing in the application could create a request at all, and
+-- decide_approval settled the request only once no steps remained pending,
+-- taking whichever decision came last. With two approvers, "changes requested"
+-- followed by "approved" ended as approved — the objection silently dropped.
+-- ---------------------------------------------------------------------------
+do $$
+declare
+  approval approval_requests%rowtype;
+  first_step uuid;
+  second_step uuid;
+  outsider uuid := '40000000-0000-4000-8000-000000000004';
+begin
+  -- An approver who is not a member of this workspace must be refused,
+  -- otherwise a step could name someone outside the tenant.
+  begin
+    approval := public.create_approval_request(
+      current_setting('release.workspace_id')::uuid,
+      'client', (select id from public.clients where workspace_id = current_setting('release.workspace_id')::uuid limit 1),
+      'Outsider approver', null, null, array[outsider]
+    );
+    raise exception 'an approval step was created for a non-member';
+  exception when raise_exception then
+    if position('active member' in sqlerrm) = 0 then raise; end if;
+  end;
+
+  -- An empty approver list must be refused rather than creating a request that
+  -- can never be decided.
+  begin
+    approval := public.create_approval_request(
+      current_setting('release.workspace_id')::uuid,
+      'client', (select id from public.clients where workspace_id = current_setting('release.workspace_id')::uuid limit 1),
+      'No approvers', null, null, '{}'::uuid[]
+    );
+    raise exception 'an approval request was created with no approvers';
+  exception when raise_exception then
+    if position('at least one approver' in sqlerrm) = 0 then raise; end if;
+  end;
+
+  -- Two approvers, both the workspace owner is not possible, so duplicate the
+  -- single member and rely on the de-duplication, then add a second step by
+  -- hand to model a two-approver round.
+  approval := public.create_approval_request(
+    current_setting('release.workspace_id')::uuid,
+    'client', (select id from public.clients where workspace_id = current_setting('release.workspace_id')::uuid limit 1),
+    'Round 1', 'Check the headline', null,
+    array['30000000-0000-4000-8000-000000000003'::uuid, '30000000-0000-4000-8000-000000000003'::uuid]
+  );
+
+  if (select count(*) from public.approval_steps where approval_request_id = approval.id) <> 1 then
+    raise exception 'duplicate approvers must collapse to one step';
+  end if;
+  if approval.status <> 'pending' then raise exception 'a new approval must start pending'; end if;
+  if not exists (select 1 from public.approval_events where approval_request_id = approval.id and action = 'requested') then
+    raise exception 'creating an approval must record an event';
+  end if;
+
+  select id into first_step from public.approval_steps where approval_request_id = approval.id;
+
+  -- Add a second pending step so there are two outstanding decisions.
+  insert into public.approval_steps (approval_request_id, position, approver_type, approver_id, status)
+  values (approval.id, 1, 'user', '30000000-0000-4000-8000-000000000003', 'pending')
+  returning id into second_step;
+
+  -- First approver requests changes. The request must settle immediately.
+  approval := public.decide_approval(
+    current_setting('release.workspace_id')::uuid, approval.id, first_step,
+    'changes_requested', 'Needs another pass'
+  );
+  if approval.status <> 'changes_requested' then
+    raise exception 'a request for changes must settle the approval, got %', approval.status;
+  end if;
+
+  -- The second approver can no longer approve over the top of it.
+  begin
+    approval := public.decide_approval(
+      current_setting('release.workspace_id')::uuid, approval.id, second_step,
+      'approved', 'Looks fine to me'
+    );
+    raise exception 'an approval was recorded after the request had been settled';
+  exception when raise_exception then
+    if position('no longer pending' in sqlerrm) = 0 then raise; end if;
+  end;
+
+  if (select status from public.approval_requests where id = approval.id) <> 'changes_requested' then
+    raise exception 'a later approval overwrote a request for changes';
+  end if;
+end $$;
+
+-- ---------------------------------------------------------------------------
 -- Migration 0024: replay must return the records this conversion created.
 --
 -- The checks above pass under the old heuristic too, because the fixture has
