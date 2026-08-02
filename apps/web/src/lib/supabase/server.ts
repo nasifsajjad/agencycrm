@@ -16,7 +16,6 @@ import { createClient as createSupabaseClient, type SupabaseClient } from "@supa
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
 const SUPABASE_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 
 export const supabaseConfigured = Boolean(SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY)
 
@@ -47,12 +46,14 @@ export async function createServerClient(): Promise<SupabaseClient | null> {
 }
 
 /**
- * Service-role client. SERVER-ONLY. Importable only from server modules.
- * Bypasses RLS — use only for trusted jobs that cannot operate under a user token.
+ * There is deliberately no service-role client here.
+ *
+ * This is the public marketing site. Its only database work is inserting a
+ * marketing inquiry, which goes through an RLS-governed anonymous insert
+ * policy. A service-role client would bypass RLS entirely, and it had no
+ * callers — it was left behind when the CRM code was removed from this app.
+ *
+ * Consequence worth keeping: apps/web does not need SUPABASE_SERVICE_ROLE_KEY
+ * in its environment at all. Do not add it to this project's Vercel settings.
+ * The key belongs only to apps/app, where the outbox worker uses it.
  */
-export function createServiceClient(): SupabaseClient | null {
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return null
-  return createSupabaseClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  })
-}

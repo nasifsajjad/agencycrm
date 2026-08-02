@@ -1,0 +1,26 @@
+# Normalise line endings.
+#
+# Prettier is configured with endOfLine: "lf" (.prettierrc.json). On Windows,
+# core.autocrlf=true rewrites files to CRLF on checkout, so `prettier --check`
+# reports every file as unformatted locally while CI on Linux passes — the
+# repository content is LF either way. That divergence is pure noise and hides
+# real formatting failures, so pin the working tree to LF everywhere.
+* text=auto eol=lf
+
+# Binary files must never be normalised.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.tar.gz binary
+*.zip binary
+
+# Generated; keep out of diffs and language stats.
+pnpm-lock.yaml linguist-generated=true -diff
