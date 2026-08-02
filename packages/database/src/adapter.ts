@@ -337,11 +337,53 @@ function toSnake(value: unknown): unknown {
   return value
 }
 
+/**
+ * Columns declared `bigint` in the schema that are not named `*_minor`.
+ */
+const BIGINT_FIELDS = new Set(["sizeBytes"])
+
+/**
+ * Every monetary column in this schema is `bigint` and named `*_minor`, per the
+ * integer-minor-units rule in AGENTS.md.
+ */
+const isBigIntField = (field: string) => field.endsWith("Minor") || BIGINT_FIELDS.has(field)
+
+/**
+ * PostgREST serialises `bigint` as a JSON number, so money arrived as a
+ * `number` while every consumer treated it as `bigint` — `reduce(…, 0n)`,
+ * `BigInt(probability)` multiplications, `formatMoney`. The first row of real
+ * data in a workspace therefore threw "Cannot mix BigInt and other types" and
+ * took out the dashboard, the deals board, reports, finance and Client 360.
+ * Empty workspaces were fine, which is why it survived to production.
+ *
+ * Values above 2^53 can also arrive as strings; BigInt() handles both, and
+ * doing the conversion here means precision is never lost to a float on the
+ * way in. The write direction was already correct — toSnake stringifies
+ * bigint before serialisation.
+ */
+function toBigIntValue(field: string, value: unknown): unknown {
+  if (!isBigIntField(field)) return value
+  if (typeof value === "bigint" || value === null || value === undefined) return value
+  if (typeof value === "number") {
+    if (!Number.isSafeInteger(value)) {
+      throw new Error(
+        `${field} arrived as an unsafe number (${value}); the column exceeds 2^53 and must be read as a string`
+      )
+    }
+    return BigInt(value)
+  }
+  if (typeof value === "string" && /^-?\d+$/.test(value)) return BigInt(value)
+  return value
+}
+
 function toModel(model: string, value: unknown): unknown {
   if (Array.isArray(value)) return value.map((item) => toModel(model, item))
   if (!isRecord(value)) return value
   const result = Object.fromEntries(
-    Object.entries(value).map(([key, item]) => [camel(key), toModel(model, item)])
+    Object.entries(value).map(([key, item]) => {
+      const field = camel(key)
+      return [field, toBigIntValue(field, toModel(model, item))]
+    })
   )
   for (const [field, sqlField] of Object.entries(FIELD_ALIASES[model] ?? {})) {
     const camelSqlField = camel(sqlField)

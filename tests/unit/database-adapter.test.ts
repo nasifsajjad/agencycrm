@@ -165,6 +165,7 @@ class FakeSupabase {
   lastHead = false
   readonly columns: Record<string, Set<string>> = {
     companies: new Set(["id", "workspace_id", "name", "owner_user_id"]),
+    deals: new Set(["id", "workspace_id", "name", "amount_minor"]),
     contacts: new Set(["id", "workspace_id", "company_id", "email"]),
     profiles: new Set(["id", "user_id", "email"]),
   }
@@ -190,6 +191,17 @@ class FakeSupabase {
     profiles: [
       { id: "profile-a", user_id: "user-a", email: "a@example.com" },
       { id: "profile-b", user_id: "user-b", email: "b@example.com" },
+    ],
+    // PostgREST serialises bigint as a JSON number, which is what this
+    // fixture reproduces.
+    deals: [
+      { id: "deal-a", workspace_id: "workspace-a", name: "Small", amount_minor: 125000 },
+      {
+        id: "deal-b",
+        workspace_id: "workspace-a",
+        name: "Large",
+        amount_minor: "9007199254740993",
+      },
     ],
   }
   schema() {
@@ -253,5 +265,30 @@ describe("Supabase database adapter semantics", () => {
     await expect(db.company.findMany({ select: { madeUpField: true } })).rejects.toThrow(
       "column does not exist"
     )
+  })
+
+  it("reads bigint money columns as BigInt, not number", async () => {
+    // Money columns are `bigint` in the schema and every consumer treats them
+    // as BigInt — `reduce(..., 0n)`, formatMoney, weighted-pipeline maths. The
+    // adapter used to hand back the raw JSON number, so the first row of real
+    // data in a workspace threw "Cannot mix BigInt and other types" and took
+    // out the dashboard, deals board, reports and finance. Empty workspaces
+    // were unaffected, which is how it reached production.
+    const client = new FakeSupabase()
+    const db = createDatabase(() => client as never)
+    const deals = await db.deal.findMany({ where: { workspaceId: "workspace-a" } })
+
+    expect(deals.map((d: { amountMinor: unknown }) => typeof d.amountMinor)).toEqual([
+      "bigint",
+      "bigint",
+    ])
+
+    // The exact operation that used to throw.
+    const total = deals.reduce((sum: bigint, d: { amountMinor: bigint }) => sum + d.amountMinor, 0n)
+    expect(total).toBe(125000n + 9007199254740993n)
+
+    // A value beyond 2^53 arrives as a string; it must keep every digit.
+    const large = deals.find((d: { id: string }) => d.id === "deal-b")
+    expect(large.amountMinor).toBe(9007199254740993n)
   })
 })
