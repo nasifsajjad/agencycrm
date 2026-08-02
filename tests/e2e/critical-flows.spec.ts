@@ -77,6 +77,15 @@ test.describe("AgencyOS critical flows", () => {
     await expect(page).toHaveURL(/:3001\/sign-in/)
   })
 
+  test("the app domain root is not a dead end", async ({ page }) => {
+    // This returned a bare 404 in production: apps/app had no `/` route at
+    // all, so the front door of the authenticated product was a Next error
+    // page. Signed out, the root must land on sign-in.
+    await page.goto(appPath("/"))
+    await expect(page).toHaveURL(/:3001\/sign-in/)
+    await expect(page.getByLabel("Email")).toBeVisible()
+  })
+
   test("health endpoint returns ok", async ({ request }) => {
     const res = await request.get(appPath("/api/health"))
     expect(res.ok()).toBeTruthy()
