@@ -63,7 +63,27 @@ export interface WorkspaceContext {
   isOwner: boolean
 }
 
-export async function getUserMemberships(userId: string) {
+export type UserMembership = Record<string, unknown> & {
+  /** The joined workspace, or null if it could not be read. */
+  workspace: { id: string; slug: string; name: string } | null
+}
+
+/**
+ * Active workspace memberships for a user, with the joined workspace exposed
+ * as `workspace`.
+ *
+ * PostgREST returns an embedded resource under the *table* name, so
+ * `select("*, workspaces(*)")` yields `row.workspaces`. Callers reasonably
+ * expected `row.workspace` — the singular name the database adapter uses for
+ * the same relation everywhere else — and `/app` read `first.workspace.slug`,
+ * which threw a TypeError and returned a 500 for every user who had a
+ * workspace. The entry point after sign-in was broken for all real accounts
+ * while onboarding, which does not touch the join, worked fine.
+ *
+ * Normalising here rather than at the call site means the two shapes cannot
+ * diverge again.
+ */
+export async function getUserMemberships(userId: string): Promise<UserMembership[]> {
   const supabase = await createServerClient()
   if (!supabase) return []
   const { data } = await supabase
@@ -71,7 +91,19 @@ export async function getUserMemberships(userId: string) {
     .select("*, workspaces(*)")
     .eq("user_id", userId)
     .eq("status", "active")
-  return data ?? []
+
+  return (data ?? []).map((row) => {
+    const { workspaces, ...rest } = row as Record<string, unknown> & {
+      workspaces?: unknown
+    }
+    // The embed is an object for a to-one relation, but tolerate an array.
+    const joined = Array.isArray(workspaces) ? workspaces[0] : workspaces
+    const workspace =
+      joined && typeof joined === "object"
+        ? (joined as { id: string; slug: string; name: string })
+        : null
+    return { ...rest, workspace }
+  })
 }
 
 export async function getWorkspaceContext(
