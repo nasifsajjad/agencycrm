@@ -77,16 +77,31 @@ jobs:
       - name: Start local Supabase, applying every migration from empty
         run: supabase start
 
+      # Supabase names the container supabase_db_<project_id>. Resolve it from
+      # Docker rather than hardcoding, and export it so the test suites use the
+      # same one.
+      - name: Resolve the Supabase database container
+        run: |
+          set -euo pipefail
+          name=$(docker ps --filter "name=supabase_db_" --format '{{.Names}}' | head -n1)
+          if [ -z "$name" ]; then
+            docker ps
+            echo "::error::no supabase_db_* container is running"
+            exit 1
+          fi
+          echo "Using container: $name"
+          echo "SUPABASE_DB_CONTAINER=$name" >> "$GITHUB_ENV"
+
       # Fail loudly if the chain silently stopped short.
       - name: Confirm every migration is recorded as applied
         run: |
           set -euo pipefail
           expected=$(ls supabase/migrations/*.sql | wc -l)
-          applied=$(docker exec supabase_db_agencyos-local psql -U postgres -d postgres -tAc \
-            "select count(*) from supabase_migrations.schema_migrations")
+          applied=$(docker exec "$SUPABASE_DB_CONTAINER" psql -U postgres -d postgres -tAc \
+            "select count(*) from supabase_migrations.schema_migrations" | tr -d '[:space:]')
           echo "migrations on disk: $expected, applied: $applied"
           if [ "$expected" -ne "$applied" ]; then
-            docker exec supabase_db_agencyos-local psql -U postgres -d postgres -c \
+            docker exec "$SUPABASE_DB_CONTAINER" psql -U postgres -d postgres -c \
               "select version from supabase_migrations.schema_migrations order by version"
             echo "::error::migration count mismatch — the chain did not fully apply"
             exit 1

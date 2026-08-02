@@ -1,7 +1,5 @@
-import { execFileSync } from "node:child_process"
 import { describe, expect, it } from "vitest"
-
-const container = process.env.SUPABASE_DB_CONTAINER ?? "supabase_db_agencyos-local"
+import { runSql } from "./sql-behavior"
 
 describe("public inquiry RLS behavior", () => {
   it("allows anonymous submission but not reading, while service role can process submissions", () => {
@@ -26,22 +24,6 @@ describe("public inquiry RLS behavior", () => {
       end $$;
       rollback;
     `
-    const output = execFileSync(
-      "docker",
-      [
-        "exec",
-        "-i",
-        container,
-        "psql",
-        "-U",
-        "postgres",
-        "-d",
-        "postgres",
-        "-v",
-        "ON_ERROR_STOP=1",
-      ],
-      { encoding: "utf8", input: sql, stdio: ["pipe", "pipe", "pipe"] }
-    )
-    expect(output).toContain("ROLLBACK")
+    expect(runSql(sql)).toContain("ROLLBACK")
   })
 })
