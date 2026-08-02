@@ -65,20 +65,87 @@ export async function createContactAction(slug: string, formData: FormData) {
   })
 }
 
+/**
+ * Archives a contact rather than deleting it.
+ *
+ * This was a hard `db.contact.delete(...)`, which made a mis-click
+ * unrecoverable and left an audit entry recording that a row had been removed
+ * without preserving what it contained. prd.md §12 requires soft deletion for
+ * user-restorable business records; migration 0026 adds the columns and a
+ * maintenance-only purge for the eventual hard delete.
+ *
+ * The action keeps its name because every caller and the confirmation dialog
+ * already speak in terms of deleting; what changed is that the row is now
+ * recoverable from the trash.
+ */
 export async function deleteContactAction(slug: string, id: string) {
+  return withPermission(slug, "crm.delete", async () => {
+    const ctx = await resolveWorkspace(slug)
+    const contact = await db.contact.findFirst({
+      where: { id, workspaceId: ctx.workspaceId, archivedAt: null },
+    })
+    if (!contact) throw new Error("Contact not found.")
+    await db.contact.updateMany({
+      where: { id, workspaceId: ctx.workspaceId },
+      data: { archivedAt: new Date(), archivedBy: ctx.userId },
+    })
+    await audit({
+      ctx,
+      action: "contact.archived",
+      entityType: "contact",
+      entityId: id,
+      before: { name: `${contact.firstName} ${contact.lastName}`, archivedAt: null },
+      after: { archivedAt: new Date().toISOString() },
+    })
+    revalidatePath(`/w/${slug}/crm/contacts`)
+    return true
+  })
+}
+
+export async function restoreContactAction(slug: string, id: string) {
   return withPermission(slug, "crm.delete", async () => {
     const ctx = await resolveWorkspace(slug)
     const contact = await db.contact.findFirst({ where: { id, workspaceId: ctx.workspaceId } })
     if (!contact) throw new Error("Contact not found.")
-    await db.contact.delete({ where: { id } })
+    if (!contact.archivedAt) return true
+    await db.contact.updateMany({
+      where: { id, workspaceId: ctx.workspaceId },
+      data: { archivedAt: null, archivedBy: null },
+    })
     await audit({
       ctx,
-      action: "contact.deleted",
+      action: "contact.restored",
       entityType: "contact",
       entityId: id,
-      before: { name: `${contact.firstName} ${contact.lastName}` },
+      before: { archivedAt: contact.archivedAt },
+      after: { archivedAt: null },
     })
     revalidatePath(`/w/${slug}/crm/contacts`)
+    revalidatePath(`/w/${slug}/settings/trash`)
+    return true
+  })
+}
+
+export async function restoreCompanyAction(slug: string, id: string) {
+  return withPermission(slug, "crm.delete", async () => {
+    const ctx = await resolveWorkspace(slug)
+    const company = await db.company.findFirst({ where: { id, workspaceId: ctx.workspaceId } })
+    if (!company) throw new Error("Company not found.")
+    if (!company.archivedAt) return true
+    await db.company.updateMany({
+      where: { id, workspaceId: ctx.workspaceId },
+      data: { archivedAt: null, archivedBy: null },
+    })
+    await audit({
+      ctx,
+      action: "company.restored",
+      entityType: "company",
+      entityId: id,
+      before: { archivedAt: company.archivedAt },
+      after: { archivedAt: null },
+    })
+    revalidatePath(`/w/${slug}/crm/companies`)
+    revalidatePath(`/w/${slug}/settings/trash`)
     return true
   })
 }

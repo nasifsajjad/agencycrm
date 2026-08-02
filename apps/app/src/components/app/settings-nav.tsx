@@ -13,6 +13,7 @@ import {
   Plug,
   ArrowDownUp,
   Shield,
+  Trash2,
   Settings as SettingsIcon,
 } from "lucide-react"
 
@@ -50,6 +51,7 @@ const NAV = [
     icon: ArrowDownUp,
     perm: "settings.read" as const,
   },
+  { href: "/settings/trash", label: "Trash", icon: Trash2, perm: "crm.delete" as const },
 ]
 
 export async function SettingsNav({ workspaceSlug }: { workspaceSlug: string }) {
