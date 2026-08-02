@@ -15,6 +15,8 @@ import {
 } from "lucide-react"
 import { ActivityCompleteButton } from "@/components/app/activity-complete-button"
 import { formatDateTime, relativeTime } from "@/lib/format"
+import { buildPageInfo, parsePageParams } from "@agencyos/domain"
+import { Pagination } from "@/components/app/pagination"
 
 const TYPE_ICON = {
   call: Phone,
@@ -26,19 +28,31 @@ const TYPE_ICON = {
 
 export default async function ActivitiesPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ workspaceSlug: string }>
+  searchParams: Promise<{ page?: string; pageSize?: string }>
 }) {
   const { workspaceSlug } = await params
+  const resolvedSearchParams = await searchParams
   const ctx = await resolveWorkspace(workspaceSlug)
   if (!can(ctx, "crm.read")) return <Forbidden />
 
-  const activities = await db.activity.findMany({
-    where: { workspaceId: ctx.workspaceId },
-    include: { owner: true, contact: true, deal: true },
-    orderBy: { createdAt: "desc" },
-    take: 100,
-  })
+  const pageParams = parsePageParams(resolvedSearchParams)
+
+  const where = { workspaceId: ctx.workspaceId }
+  const [activities, activityCount] = await Promise.all([
+    db.activity.findMany({
+      where,
+      include: { owner: true, contact: true, deal: true },
+      orderBy: { createdAt: "desc" },
+      skip: pageParams.skip,
+      take: pageParams.take,
+    }),
+    db.activity.count({ where }),
+  ])
+
+  const pageInfo = buildPageInfo(pageParams, activityCount)
 
   const overdue = activities.filter((a) => a.dueAt && !a.completedAt && a.dueAt < new Date())
   const today = activities.filter((a) => {
@@ -51,7 +65,7 @@ export default async function ActivitiesPage({
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
       <PageHeader
         title="Activities"
-        description={`${activities.length} activities · ${overdue.length} overdue · ${today.length} due today`}
+        description={`${pageInfo.total} activities · ${overdue.length} overdue · ${today.length} due today`}
       />
       {activities.length === 0 ? (
         <EmptyState
@@ -113,6 +127,13 @@ export default async function ActivitiesPage({
               </div>
             )
           })}
+          <Pagination
+            info={pageInfo}
+            basePath={`/w/${workspaceSlug}/crm/activities`}
+            searchParams={resolvedSearchParams}
+            label="activities"
+            className="px-4"
+          />
         </Card>
       )}
     </div>

@@ -12,6 +12,21 @@ import { LeadStatusSelect } from "@/components/app/lead-status-select"
 import { humanStatus, classForStatus, initials } from "@/lib/format"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 
+/** Columns of the qualification board, in flow order. */
+const LEAD_COLUMNS = [
+  { status: "new", title: "New" },
+  { status: "qualified", title: "Qualified" },
+  { status: "disqualified", title: "Disqualified" },
+  { status: "converted", title: "Converted" },
+] as const
+
+/**
+ * Cards fetched per column. A board column is only scannable to a point, and
+ * each column carries its true total in its badge, so the cap bounds the query
+ * without hiding the size of the pipeline.
+ */
+const LEADS_PER_COLUMN = 50
+
 export default async function LeadsPage({
   params,
   searchParams,
@@ -24,20 +39,37 @@ export default async function LeadsPage({
   const ctx = await resolveWorkspace(workspaceSlug)
   if (!can(ctx, "crm.read")) return <Forbidden />
 
-  const leads = await db.lead.findMany({
-    where: { workspaceId: ctx.workspaceId },
-    include: { contact: true, company: true, owner: true },
-    orderBy: { createdAt: "desc" },
-    take: 100,
-  })
+  // Fetched per column rather than as one capped list.
+  //
+  // The previous query took the 100 most recent leads across every status and
+  // then split them client-side. Because the cap spans all statuses, a burst of
+  // converted leads could fill it entirely and leave the "New" column rendering
+  // empty while unworked leads existed — the board would quietly lie about the
+  // state of the pipeline. Each column now gets its own query and its own true
+  // count.
+  const columnResults = await Promise.all(
+    LEAD_COLUMNS.map(async (column) => {
+      const where = { workspaceId: ctx.workspaceId, status: column.status, archivedAt: null }
+      const [leads, total] = await Promise.all([
+        db.lead.findMany({
+          where,
+          include: { contact: true, company: true, owner: true },
+          orderBy: { createdAt: "desc" },
+          take: LEADS_PER_COLUMN,
+        }),
+        db.lead.count({ where }),
+      ])
+      return { ...column, leads, total }
+    })
+  )
 
-  const byStatus = (status: string) => leads.filter((l) => l.status === status)
+  const totalLeads = columnResults.reduce((sum, column) => sum + column.total, 0)
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
       <PageHeader
         title="Leads"
-        description={`${leads.length} ${leads.length === 1 ? "lead" : "leads"} in your inbox`}
+        description={`${totalLeads} ${totalLeads === 1 ? "lead" : "leads"} in your inbox`}
         action={
           can(ctx, "crm.create") && (
             <LeadFormDialog
@@ -52,7 +84,7 @@ export default async function LeadsPage({
           )
         }
       />
-      {leads.length === 0 ? (
+      {totalLeads === 0 ? (
         <EmptyState
           title="No leads yet"
           description="Capture your first lead to start the qualification flow."
@@ -64,21 +96,21 @@ export default async function LeadsPage({
         />
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {[
-            { status: "new", title: "New" },
-            { status: "qualified", title: "Qualified" },
-            { status: "disqualified", title: "Disqualified" },
-            { status: "converted", title: "Converted" },
-          ].map((col) => (
+          {columnResults.map((col) => (
             <div key={col.status} className="space-y-2">
               <div className="flex items-center justify-between px-1">
                 <h3 className="text-sm font-medium">{col.title}</h3>
                 <Badge variant="outline" className="text-xs">
-                  {byStatus(col.status).length}
+                  {col.total}
                 </Badge>
               </div>
+              {col.leads.length < col.total && (
+                <p className="px-1 text-[11px] text-muted-foreground">
+                  Showing the {col.leads.length} most recent of {col.total}
+                </p>
+              )}
               <div className="space-y-2">
-                {byStatus(col.status).map((l) => (
+                {col.leads.map((l) => (
                   <Card key={l.id} className="p-3">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
@@ -133,7 +165,7 @@ export default async function LeadsPage({
                     )}
                   </Card>
                 ))}
-                {byStatus(col.status).length === 0 && (
+                {col.leads.length === 0 && (
                   <div className="rounded-md border border-dashed py-6 text-center text-xs text-muted-foreground">
                     Empty
                   </div>

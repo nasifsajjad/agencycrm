@@ -10,18 +10,23 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { CompanyFormDialog } from "@/components/app/company-form"
 import { humanStatus, classForStatus } from "@/lib/format"
+import { buildPageInfo, parsePageParams } from "@agencyos/domain"
+import { Pagination } from "@/components/app/pagination"
 
 export default async function CompaniesPage({
   params,
   searchParams,
 }: {
   params: Promise<{ workspaceSlug: string }>
-  searchParams: Promise<{ q?: string; new?: string }>
+  searchParams: Promise<{ q?: string; new?: string; page?: string; pageSize?: string }>
 }) {
   const { workspaceSlug } = await params
-  const { q, new: isNew } = await searchParams
+  const resolvedSearchParams = await searchParams
+  const { q, new: isNew } = resolvedSearchParams
   const ctx = await resolveWorkspace(workspaceSlug)
   if (!can(ctx, "crm.read")) return <Forbidden />
+
+  const pageParams = parsePageParams(resolvedSearchParams)
 
   const where = {
     workspaceId: ctx.workspaceId,
@@ -36,18 +41,24 @@ export default async function CompaniesPage({
         }
       : {}),
   }
-  const companies = await db.company.findMany({
-    where,
-    include: { _count: { select: { contacts: true, deals: true } } },
-    orderBy: { updatedAt: "desc" },
-    take: 100,
-  })
+  const [companies, companyCount] = await Promise.all([
+    db.company.findMany({
+      where,
+      include: { _count: { select: { contacts: true, deals: true } } },
+      orderBy: { updatedAt: "desc" },
+      skip: pageParams.skip,
+      take: pageParams.take,
+    }),
+    db.company.count({ where }),
+  ])
+
+  const pageInfo = buildPageInfo(pageParams, companyCount)
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
       <PageHeader
         title="Companies"
-        description={`${companies.length} ${companies.length === 1 ? "company" : "companies"}`}
+        description={`${pageInfo.total} ${pageInfo.total === 1 ? "company" : "companies"}`}
         action={
           can(ctx, "crm.create") && (
             <CompanyFormDialog
@@ -86,37 +97,49 @@ export default async function CompaniesPage({
           }
         />
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {companies.map((c) => (
-            <Card key={c.id} className="p-4">
-              <div className="flex items-start justify-between gap-2">
-                <Link href={`/w/${workspaceSlug}/crm/companies/${c.id}`} className="min-w-0 flex-1">
-                  <div className="font-medium hover:underline">{c.name}</div>
-                  <div className="mt-0.5 text-xs text-muted-foreground truncate">
-                    {c.industry ?? "—"}
-                  </div>
-                </Link>
-                <Badge variant="outline" className={classForStatus(c.lifecycleStage)}>
-                  {humanStatus(c.lifecycleStage)}
-                </Badge>
-              </div>
-              <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
-                {c.website && (
-                  <a
-                    href={c.website}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 hover:text-foreground"
+        <>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {companies.map((c) => (
+              <Card key={c.id} className="p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <Link
+                    href={`/w/${workspaceSlug}/crm/companies/${c.id}`}
+                    className="min-w-0 flex-1"
                   >
-                    <Globe className="h-3 w-3" /> Website
-                  </a>
-                )}
-                <span>{c._count.contacts} contacts</span>
-                <span>{c._count.deals} deals</span>
-              </div>
-            </Card>
-          ))}
-        </div>
+                    <div className="font-medium hover:underline">{c.name}</div>
+                    <div className="mt-0.5 text-xs text-muted-foreground truncate">
+                      {c.industry ?? "—"}
+                    </div>
+                  </Link>
+                  <Badge variant="outline" className={classForStatus(c.lifecycleStage)}>
+                    {humanStatus(c.lifecycleStage)}
+                  </Badge>
+                </div>
+                <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
+                  {c.website && (
+                    <a
+                      href={c.website}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 hover:text-foreground"
+                    >
+                      <Globe className="h-3 w-3" /> Website
+                    </a>
+                  )}
+                  <span>{c._count.contacts} contacts</span>
+                  <span>{c._count.deals} deals</span>
+                </div>
+              </Card>
+            ))}
+          </div>
+          <Pagination
+            info={pageInfo}
+            basePath={`/w/${workspaceSlug}/crm/companies`}
+            searchParams={resolvedSearchParams}
+            label="companies"
+            className="px-4"
+          />
+        </>
       )}
     </div>
   )

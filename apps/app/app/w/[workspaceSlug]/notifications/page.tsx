@@ -6,20 +6,34 @@ import { Button } from "@/components/ui/button"
 import { BellOff, Check } from "lucide-react"
 import { relativeTime } from "@/lib/format"
 import { MarkAllReadButton, MarkReadButton } from "@/components/app/notification-actions"
+import { buildPageInfo, parsePageParams } from "@agencyos/domain"
+import { Pagination } from "@/components/app/pagination"
 
 export default async function NotificationsPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ workspaceSlug: string }>
+  searchParams: Promise<{ page?: string; pageSize?: string }>
 }) {
   const { workspaceSlug } = await params
+  const resolvedSearchParams = await searchParams
   const ctx = await resolveWorkspace(workspaceSlug)
 
-  const notifications = await db.notification.findMany({
-    where: { workspaceId: ctx.workspaceId, userId: ctx.userId },
-    orderBy: { createdAt: "desc" },
-    take: 50,
-  })
+  const pageParams = parsePageParams(resolvedSearchParams)
+
+  const where = { workspaceId: ctx.workspaceId, userId: ctx.userId }
+  const [notifications, notificationCount] = await Promise.all([
+    db.notification.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip: pageParams.skip,
+      take: pageParams.take,
+    }),
+    db.notification.count({ where }),
+  ])
+
+  const pageInfo = buildPageInfo(pageParams, notificationCount)
 
   const unreadCount = notifications.filter((n) => !n.readAt).length
 
@@ -52,6 +66,13 @@ export default async function NotificationsPage({
               {!n.readAt && <MarkReadButton workspaceSlug={workspaceSlug} id={n.id} />}
             </div>
           ))}
+          <Pagination
+            info={pageInfo}
+            basePath={`/w/${workspaceSlug}/notifications`}
+            searchParams={resolvedSearchParams}
+            label="notifications"
+            className="px-4"
+          />
         </Card>
       )}
     </div>

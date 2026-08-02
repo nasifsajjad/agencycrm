@@ -10,22 +10,28 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { ProjectFormDialog } from "@/components/app/project-form"
 import { humanStatus, classForStatus, formatDate, formatMoney, initials } from "@/lib/format"
+import { buildPageInfo, parsePageParams } from "@agencyos/domain"
+import { Pagination } from "@/components/app/pagination"
 
 export default async function ProjectsPage({
   params,
   searchParams,
 }: {
   params: Promise<{ workspaceSlug: string }>
-  searchParams: Promise<{ new?: string }>
+  searchParams: Promise<{ new?: string; page?: string; pageSize?: string }>
 }) {
   const { workspaceSlug } = await params
-  const { new: isNew } = await searchParams
+  const resolvedSearchParams = await searchParams
+  const { new: isNew } = resolvedSearchParams
   const ctx = await resolveWorkspace(workspaceSlug)
   if (!can(ctx, "projects.read")) return <Forbidden />
 
-  const [projects, clients, statuses] = await Promise.all([
+  const pageParams = parsePageParams(resolvedSearchParams)
+
+  const where = { workspaceId: ctx.workspaceId }
+  const [projects, projectCount, clients, statuses] = await Promise.all([
     db.project.findMany({
-      where: { workspaceId: ctx.workspaceId },
+      where,
       include: {
         client: true,
         status: true,
@@ -33,7 +39,10 @@ export default async function ProjectsPage({
         _count: { select: { tasks: true } },
       },
       orderBy: { updatedAt: "desc" },
+      skip: pageParams.skip,
+      take: pageParams.take,
     }),
+    db.project.count({ where }),
     db.client.findMany({
       where: { workspaceId: ctx.workspaceId },
       select: { id: true, name: true },
@@ -44,11 +53,13 @@ export default async function ProjectsPage({
     }),
   ])
 
+  const pageInfo = buildPageInfo(pageParams, projectCount)
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
       <PageHeader
         title="Projects"
-        description={`${projects.length} ${projects.length === 1 ? "project" : "projects"}`}
+        description={`${pageInfo.total} ${pageInfo.total === 1 ? "project" : "projects"}`}
         action={
           can(ctx, "projects.create") && (
             <ProjectFormDialog
@@ -143,6 +154,13 @@ export default async function ProjectsPage({
               </tbody>
             </table>
           </div>
+          <Pagination
+            info={pageInfo}
+            basePath={`/w/${workspaceSlug}/projects`}
+            searchParams={resolvedSearchParams}
+            label="projects"
+            className="px-4"
+          />
         </Card>
       )}
     </div>

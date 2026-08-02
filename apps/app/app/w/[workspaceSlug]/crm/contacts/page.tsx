@@ -12,18 +12,23 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { ContactFormDialog } from "@/components/app/contact-form"
 import { DeleteActionButton } from "@/components/app/delete-button"
 import { initials, classForStatus, humanStatus } from "@/lib/format"
+import { buildPageInfo, parsePageParams } from "@agencyos/domain"
+import { Pagination } from "@/components/app/pagination"
 
 export default async function ContactsPage({
   params,
   searchParams,
 }: {
   params: Promise<{ workspaceSlug: string }>
-  searchParams: Promise<{ q?: string; new?: string }>
+  searchParams: Promise<{ q?: string; new?: string; page?: string; pageSize?: string }>
 }) {
   const { workspaceSlug } = await params
-  const { q, new: isNew } = await searchParams
+  const resolvedSearchParams = await searchParams
+  const { q, new: isNew } = resolvedSearchParams
   const ctx = await resolveWorkspace(workspaceSlug)
   if (!can(ctx, "crm.read")) return <Forbidden />
+
+  const pageParams = parsePageParams(resolvedSearchParams)
 
   const where = {
     workspaceId: ctx.workspaceId,
@@ -39,13 +44,15 @@ export default async function ContactsPage({
         }
       : {}),
   }
-  const [contacts, companies, members] = await Promise.all([
+  const [contacts, contactCount, companies, members] = await Promise.all([
     db.contact.findMany({
       where,
       include: { company: true, owner: true },
       orderBy: { updatedAt: "desc" },
-      take: 100,
+      skip: pageParams.skip,
+      take: pageParams.take,
     }),
+    db.contact.count({ where }),
     db.company.findMany({
       where: { workspaceId: ctx.workspaceId },
       select: { id: true, name: true },
@@ -57,11 +64,13 @@ export default async function ContactsPage({
     }),
   ])
 
+  const pageInfo = buildPageInfo(pageParams, contactCount)
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
       <PageHeader
         title="Contacts"
-        description={`${contacts.length} ${contacts.length === 1 ? "contact" : "contacts"}${q ? ` matching "${q}"` : ""}`}
+        description={`${pageInfo.total} ${pageInfo.total === 1 ? "contact" : "contacts"}${q ? ` matching "${q}"` : ""}`}
         action={
           can(ctx, "crm.create") && (
             <ContactFormDialog
@@ -165,6 +174,13 @@ export default async function ContactsPage({
               </tbody>
             </table>
           </div>
+          <Pagination
+            info={pageInfo}
+            basePath={`/w/${workspaceSlug}/crm/contacts`}
+            searchParams={resolvedSearchParams}
+            label="contacts"
+            className="px-4"
+          />
         </Card>
       )}
     </div>

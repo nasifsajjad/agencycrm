@@ -9,22 +9,28 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ClientFormDialog } from "@/components/app/client-form"
 import { humanStatus, classForStatus, formatDate } from "@/lib/format"
+import { buildPageInfo, parsePageParams } from "@agencyos/domain"
+import { Pagination } from "@/components/app/pagination"
 
 export default async function ClientsPage({
   params,
   searchParams,
 }: {
   params: Promise<{ workspaceSlug: string }>
-  searchParams: Promise<{ new?: string }>
+  searchParams: Promise<{ new?: string; page?: string; pageSize?: string }>
 }) {
   const { workspaceSlug } = await params
-  const { new: isNew } = await searchParams
+  const resolvedSearchParams = await searchParams
+  const { new: isNew } = resolvedSearchParams
   const ctx = await resolveWorkspace(workspaceSlug)
   if (!can(ctx, "clients.read")) return <Forbidden />
 
-  const [clients, companies] = await Promise.all([
+  const pageParams = parsePageParams(resolvedSearchParams)
+
+  const where = { workspaceId: ctx.workspaceId }
+  const [clients, clientCount, companies] = await Promise.all([
     db.client.findMany({
-      where: { workspaceId: ctx.workspaceId },
+      where,
       include: {
         owner: true,
         _count: {
@@ -32,18 +38,23 @@ export default async function ClientsPage({
         },
       },
       orderBy: { updatedAt: "desc" },
+      skip: pageParams.skip,
+      take: pageParams.take,
     }),
+    db.client.count({ where }),
     db.company.findMany({
       where: { workspaceId: ctx.workspaceId },
       select: { id: true, name: true },
     }),
   ])
 
+  const pageInfo = buildPageInfo(pageParams, clientCount)
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
       <PageHeader
         title="Clients"
-        description={`${clients.length} ${clients.length === 1 ? "client" : "clients"}`}
+        description={`${pageInfo.total} ${pageInfo.total === 1 ? "client" : "clients"}`}
         action={
           can(ctx, "clients.create") && (
             <ClientFormDialog
@@ -126,6 +137,13 @@ export default async function ClientsPage({
               </tbody>
             </table>
           </div>
+          <Pagination
+            info={pageInfo}
+            basePath={`/w/${workspaceSlug}/clients`}
+            searchParams={resolvedSearchParams}
+            label="clients"
+            className="px-4"
+          />
         </Card>
       )}
     </div>

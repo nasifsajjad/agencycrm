@@ -6,26 +6,40 @@ import { PageHeader, EmptyState, Forbidden } from "@/components/app/states"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { humanStatus, classForStatus, relativeTime, formatDate } from "@/lib/format"
+import { buildPageInfo, parsePageParams } from "@agencyos/domain"
+import { Pagination } from "@/components/app/pagination"
 
 export default async function ApprovalsPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ workspaceSlug: string }>
+  searchParams: Promise<{ page?: string; pageSize?: string }>
 }) {
   const { workspaceSlug } = await params
+  const resolvedSearchParams = await searchParams
   const ctx = await resolveWorkspace(workspaceSlug)
   if (!can(ctx, "approvals.read")) return <Forbidden />
 
-  const approvals = await db.approvalRequest.findMany({
-    where: { workspaceId: ctx.workspaceId },
-    include: {
-      requestedBy: true,
-      steps: true,
-      events: { orderBy: { occurredAt: "desc" }, take: 1 },
-    },
-    orderBy: { createdAt: "desc" },
-    take: 100,
-  })
+  const pageParams = parsePageParams(resolvedSearchParams)
+
+  const where = { workspaceId: ctx.workspaceId }
+  const [approvals, approvalCount] = await Promise.all([
+    db.approvalRequest.findMany({
+      where,
+      include: {
+        requestedBy: true,
+        steps: true,
+        events: { orderBy: { occurredAt: "desc" }, take: 1 },
+      },
+      orderBy: { createdAt: "desc" },
+      skip: pageParams.skip,
+      take: pageParams.take,
+    }),
+    db.approvalRequest.count({ where }),
+  ])
+
+  const pageInfo = buildPageInfo(pageParams, approvalCount)
 
   const pending = approvals.filter((a) => a.status === "pending")
   const decided = approvals.filter((a) => a.status !== "pending")
@@ -67,6 +81,13 @@ export default async function ApprovalsPage({
               </div>
             </div>
           )}
+          <Pagination
+            info={pageInfo}
+            basePath={`/w/${workspaceSlug}/approvals`}
+            searchParams={resolvedSearchParams}
+            label="approvals"
+            className="px-4"
+          />
         </div>
       )}
     </div>

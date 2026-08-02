@@ -10,26 +10,34 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { TaskFormDialog } from "@/components/app/task-form"
 import { humanStatus, classForStatus, formatDate, initials } from "@/lib/format"
+import { buildPageInfo, parsePageParams } from "@agencyos/domain"
+import { Pagination } from "@/components/app/pagination"
 
 export default async function TasksPage({
   params,
   searchParams,
 }: {
   params: Promise<{ workspaceSlug: string }>
-  searchParams: Promise<{ new?: string }>
+  searchParams: Promise<{ new?: string; page?: string; pageSize?: string }>
 }) {
   const { workspaceSlug } = await params
-  const { new: isNew } = await searchParams
+  const resolvedSearchParams = await searchParams
+  const { new: isNew } = resolvedSearchParams
   const ctx = await resolveWorkspace(workspaceSlug)
   if (!can(ctx, "tasks.read")) return <Forbidden />
 
-  const [tasks, projects, statuses, members] = await Promise.all([
+  const pageParams = parsePageParams(resolvedSearchParams)
+
+  const where = { workspaceId: ctx.workspaceId }
+  const [tasks, taskCount, projects, statuses, members] = await Promise.all([
     db.task.findMany({
-      where: { workspaceId: ctx.workspaceId },
+      where,
       include: { project: true, status: true, assignee: true, owner: true },
       orderBy: { updatedAt: "desc" },
-      take: 100,
+      skip: pageParams.skip,
+      take: pageParams.take,
     }),
+    db.task.count({ where }),
     db.project.findMany({
       where: { workspaceId: ctx.workspaceId },
       select: { id: true, name: true },
@@ -44,6 +52,8 @@ export default async function TasksPage({
     }),
   ])
 
+  const pageInfo = buildPageInfo(pageParams, taskCount)
+
   const overdue = tasks.filter(
     (t) =>
       t.dueAt &&
@@ -56,7 +66,7 @@ export default async function TasksPage({
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
       <PageHeader
         title="Tasks"
-        description={`${tasks.length} ${tasks.length === 1 ? "task" : "tasks"}${overdue.length > 0 ? ` · ${overdue.length} overdue` : ""}`}
+        description={`${pageInfo.total} ${pageInfo.total === 1 ? "task" : "tasks"}${overdue.length > 0 ? ` · ${overdue.length} overdue` : ""}`}
         action={
           can(ctx, "tasks.create") && (
             <TaskFormDialog
@@ -171,6 +181,13 @@ export default async function TasksPage({
               </tbody>
             </table>
           </div>
+          <Pagination
+            info={pageInfo}
+            basePath={`/w/${workspaceSlug}/tasks`}
+            searchParams={resolvedSearchParams}
+            label="tasks"
+            className="px-4"
+          />
         </Card>
       )}
     </div>
