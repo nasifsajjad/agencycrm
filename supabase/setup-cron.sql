@@ -10,7 +10,14 @@
 -- Supabase Cron runs on any plan and is what prd.md specifies anyway
 -- (TD-5: "Supabase Cron for recurring work").
 --
--- EDIT THE TWO VALUES IN THE `settings` BLOCK BELOW BEFORE RUNNING.
+-- HOW TO RUN
+--   1. Edit `app_url` in the first block below. That is the only edit needed.
+--   2. Run the whole file in the SQL Editor.
+--   3. The last statement prints a generated CRON_SECRET. Copy it into the
+--      Vercel app project's environment variables and redeploy.
+--
+-- Re-running is safe: the app URL is updated in place and the existing secret
+-- is reused, so Vercel does not need updating again.
 -- ===========================================================================
 
 -- pg_cron schedules the job; pg_net makes the outbound HTTP call. Both are
@@ -25,24 +32,56 @@ create extension if not exists pg_net with schema extensions;
 -- ---------------------------------------------------------------------------
 do $$
 declare
-  -- ======================= EDIT THESE TWO =======================
-  app_url    text := 'https://YOUR-APP.vercel.app';   -- no trailing slash
-  cron_secret text := 'PASTE_THE_SAME_CRON_SECRET_YOU_SET_IN_VERCEL';
-  -- ==============================================================
+  -- ======================= EDIT THIS ONE =======================
+  app_url text := 'https://YOUR-APP.vercel.app';   -- no trailing slash
+  -- =============================================================
+  --
+  -- The cron secret is NOT edited here. It is generated below with
+  -- pgcrypto and printed once at the end of this script, so there is exactly
+  -- one source of truth and no chance of the value in Vault disagreeing with
+  -- the value in Vercel. Copy what it prints into CRON_SECRET on the app
+  -- project, then redeploy.
+  cron_secret text;
+  existing_id uuid;
 begin
-  if app_url like '%YOUR-APP%' or cron_secret like 'PASTE%' then
-    raise exception 'Edit app_url and cron_secret at the top of this block first';
+  if app_url like '%YOUR-APP%' then
+    raise exception 'Set app_url at the top of this block to your deployed app origin';
+  end if;
+  if app_url !~ '^https://[a-zA-Z0-9.-]+$' then
+    raise exception
+      'app_url must be a bare https origin with no trailing slash or path, got: %', app_url;
   end if;
 
-  -- Replace on re-run so rotating the secret is just re-running this file.
-  perform vault.create_secret(app_url, 'agencyos_app_url', 'AgencyOS deployed app origin')
-  where not exists (select 1 from vault.secrets where name = 'agencyos_app_url');
+  -- Reuse the existing secret on a re-run so this file is idempotent and does
+  -- not silently invalidate a working deployment.
+  select decrypted_secret into cron_secret
+  from vault.decrypted_secrets where name = 'agencyos_cron_secret';
 
-  perform vault.create_secret(cron_secret, 'agencyos_cron_secret', 'Bearer token for /api/cron/process-outbox')
-  where not exists (select 1 from vault.secrets where name = 'agencyos_cron_secret');
+  if cron_secret is null then
+    -- Two UUIDv4s, hyphens stripped: 64 hex characters, ~244 bits of
+    -- randomness. gen_random_uuid() is built into Postgres 13+, so this needs
+    -- no extension — pgcrypto's gen_random_bytes lives in `extensions` on some
+    -- projects and `public` on others, and guessing wrong fails the script.
+    cron_secret :=
+      replace(gen_random_uuid()::text, '-', '') || replace(gen_random_uuid()::text, '-', '');
+  end if;
 
-  update vault.secrets set secret = app_url where name = 'agencyos_app_url';
-  update vault.secrets set secret = cron_secret where name = 'agencyos_cron_secret';
+  -- vault.secrets cannot be UPDATEd directly — even as postgres, Supabase
+  -- denies it ("permission denied for table secrets"). Both writes must go
+  -- through the vault API.
+  select id into existing_id from vault.secrets where name = 'agencyos_app_url';
+  if existing_id is null then
+    perform vault.create_secret(app_url, 'agencyos_app_url', 'AgencyOS deployed app origin');
+  else
+    perform vault.update_secret(existing_id, app_url);
+  end if;
+
+  select id into existing_id from vault.secrets where name = 'agencyos_cron_secret';
+  if existing_id is null then
+    perform vault.create_secret(
+      cron_secret, 'agencyos_cron_secret', 'Bearer token for /api/cron/process-outbox'
+    );
+  end if;
 end $$;
 
 -- ---------------------------------------------------------------------------
@@ -114,6 +153,22 @@ select cron.schedule(
 -- Verify
 -- ---------------------------------------------------------------------------
 select jobname, schedule, active from cron.job where jobname like 'agencyos-%';
+
+-- ---------------------------------------------------------------------------
+-- COPY THIS VALUE into CRON_SECRET on the Vercel app project, then redeploy.
+--
+-- Until Vercel has the identical value, /api/cron/process-outbox answers 503
+-- ("CRON_SECRET is not configured") or 401, and nothing in the outbox drains:
+-- no invitation emails, no notification fan-out, no automation runs.
+--
+-- Re-running this file keeps the existing secret, so the value below stays
+-- stable and you do not have to update Vercel again.
+-- ---------------------------------------------------------------------------
+select
+  'CRON_SECRET' as set_this_env_var_in_vercel,
+  decrypted_secret as value
+from vault.decrypted_secrets
+where name = 'agencyos_cron_secret';
 
 -- After a few minutes, check the runs and the HTTP responses:
 --   select jobname, status, return_message, start_time
