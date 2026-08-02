@@ -308,6 +308,10 @@ const FIELD_ALIASES: Record<string, Record<string, string>> = {
   integrationConnection: { connectedById: "connected_by" },
   savedView: { ownerId: "owner_user_id" },
   dashboard: { ownerId: "owner_user_id" },
+  // public.profiles is keyed by user_id and has no `id` column at all. Every
+  // caller refers to it as `.id`, so alias the two: reads map user_id -> id,
+  // writes and filters map id -> user_id.
+  user: { id: "user_id" },
 }
 
 const COMPOSITE_KEYS: Record<string, string[]> = {
@@ -589,7 +593,7 @@ async function applyWhere(
         if (!isRecord(clause)) throw new Error("OR clauses must be objects")
         for (const id of await matchingIds(model, clause, getClient)) ids.add(id)
       }
-      builder.in("id", Array.from(ids).length ? Array.from(ids) : [ZERO_UUID])
+      builder.in(columnName(model, "id"), Array.from(ids).length ? Array.from(ids) : [ZERO_UUID])
       continue
     }
     const relation = RELATIONS[model]?.[key]
@@ -637,7 +641,9 @@ function relationSpec(model: string, specification: JsonRecord | undefined) {
 function projection(model: string, select: JsonRecord | undefined): string {
   if (!select) return "*"
   const relations = RELATIONS[model] ?? {}
-  const columns = new Set<string>(["id"])
+  // The key column is always fetched so relations can be hydrated, but it is
+  // not always called "id" — public.profiles is keyed by user_id.
+  const columns = new Set<string>([columnName(model, "id")])
   for (const [key, value] of Object.entries(select)) {
     if (key === "_count") continue
     if (key in relations) {
@@ -871,7 +877,7 @@ async function run(
     return toModel(model, result.data?.[0] ?? null)
   }
   if (operation === "count") {
-    const query = tableClient.select("id", { count: "exact", head: true })
+    const query = tableClient.select(columnName(model, "id"), { count: "exact", head: true })
     await applyWhere(query, model, where, getClient)
     const result = await query
     if (result.error) throw result.error

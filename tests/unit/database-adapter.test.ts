@@ -167,7 +167,10 @@ class FakeSupabase {
     companies: new Set(["id", "workspace_id", "name", "owner_user_id"]),
     deals: new Set(["id", "workspace_id", "name", "amount_minor"]),
     contacts: new Set(["id", "workspace_id", "company_id", "email"]),
-    profiles: new Set(["id", "user_id", "email"]),
+    // public.profiles is keyed by user_id and has NO id column. The old
+    // fixture invented one, which hid a bug that broke every page joining
+    // to a user in production.
+    profiles: new Set(["user_id", "email", "display_name"]),
   }
   rows: Record<string, Row[]> = {
     companies: [
@@ -189,8 +192,8 @@ class FakeSupabase {
       },
     ],
     profiles: [
-      { id: "profile-a", user_id: "user-a", email: "a@example.com" },
-      { id: "profile-b", user_id: "user-b", email: "b@example.com" },
+      { user_id: "user-a", email: "a@example.com", display_name: "Ada" },
+      { user_id: "user-b", email: "b@example.com", display_name: "Blake" },
     ],
     // PostgREST serialises bigint as a JSON number, which is what this
     // fixture reproduces.
@@ -290,5 +293,25 @@ describe("Supabase database adapter semantics", () => {
     // A value beyond 2^53 arrives as a string; it must keep every digit.
     const large = deals.find((d: { id: string }) => d.id === "deal-b")
     expect(large.amountMinor).toBe(9007199254740993n)
+  })
+
+  it("joins to profiles, which is keyed by user_id and has no id column", async () => {
+    // public.profiles uses user_id as its primary key. The adapter assumed
+    // every model was keyed by `id`, so hydrating a user relation asked
+    // PostgREST for profiles.id and errored. Pages with rows to hydrate — the
+    // member picker on contacts, tasks and approvals — returned 500, while
+    // pages that happened to be empty skipped hydration and looked fine.
+    const client = new FakeSupabase()
+    const db = createDatabase(() => client as never)
+
+    const users = await db.user.findMany({
+      where: { id: "user-a" },
+      select: { id: true, email: true },
+    })
+    expect(users).toEqual([{ id: "user-a", email: "a@example.com" }])
+
+    // A projection must not request a column that does not exist.
+    await expect(db.user.findMany({ select: { id: true } })).resolves.toHaveLength(2)
+    await expect(db.user.count({ where: { id: "user-a" } })).resolves.toBe(1)
   })
 })
